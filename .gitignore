@@ -3,7 +3,7 @@
 .coverage
 .ipynb_checkpoints
 **/__pycache__/
-.python-version
+#.python-version
 *.pyc
 **/build
 
