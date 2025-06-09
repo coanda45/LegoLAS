@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy our code
-COPY packagename packagename
+COPY legolas legolas
 COPY api api
 
 # Make directories that we need, but that are not included in the COPY
