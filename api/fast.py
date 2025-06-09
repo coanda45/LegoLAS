@@ -1,10 +1,14 @@
 # TODO: Import your package, replace this by explicit imports of what you need
-from legolas.main import predict
+from legolas.segmentation.registry import load_model
+from legolas.classification.main import classify
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+model = load_model()
+assert model is not None
+app.state.model = model
 
 app.add_middleware(
     CORSMiddleware,

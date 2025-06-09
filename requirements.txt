@@ -17,3 +17,6 @@ pandas==2.2.3
 # API
 fastapi
 uvicorn
+
+# web
+streamlit
