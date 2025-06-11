@@ -87,27 +87,6 @@ def post_predict(data: ImageData):
 
     os.remove(temp_image_path)
 
-    draw = ImageDraw.Draw(image)
-
-    for pred in result["predictions"]:
-        x, y = pred["x"], pred["y"]
-        w, h = pred["width"], pred["height"]
-        label = pred["class"]
-        confidence = pred["confidence"]
-
-        left = int(x - w / 2)
-        upper = int(y - h / 2)
-        right = int(x + w / 2)
-        lower = int(y + h / 2)
-
-        draw.rectangle([left, upper, right, lower], outline="red", width=2)
-        draw.text((left, upper - 10),
-                  f"{label} ({confidence:.2f})", fill="red")
-
-    buffer = BytesIO()
-    image.save(buffer, format="JPEG")
-    img_bytes = buffer.getvalue()
-
     # results = []
     results = pd.DataFrame()
     for i, pred in enumerate(result["predictions"]):
@@ -186,6 +165,27 @@ def post_predict(data: ImageData):
             results = pd.concat([results, df], ignore_index=True)
 
     print(results)
+
+    draw = ImageDraw.Draw(image)
+
+    for pred in result["predictions"]:
+        x, y = pred["x"], pred["y"]
+        w, h = pred["width"], pred["height"]
+        label = pred["class"]
+        confidence = pred["confidence"]
+
+        left = int(x - w / 2)
+        upper = int(y - h / 2)
+        right = int(x + w / 2)
+        lower = int(y + h / 2)
+
+        draw.rectangle([left, upper, right, lower], outline="red", width=2)
+        draw.text((left, upper - 10),
+                  f"{label} ({confidence:.2f})", fill="red")
+
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    img_bytes = buffer.getvalue()
 
     return JSONResponse(content={
         "image": b64encode(img_bytes).decode('utf-8'),
