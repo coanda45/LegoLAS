@@ -34,7 +34,8 @@ if uploaded_file is not None:
                      value=img_base64[:200] + "...", height=150)
 
         # URL de l'API (à adapter)
-        api_url = "http://localhost:8000/predict/"
+        # api_url = "http://localhost:8000/predict/"
+        api_url = "https://legolas-733027877169.europe-west1.run.app/predict"
 
         if st.button("Envoyer à l'API"):
             payload = {"img_base64": img_base64}

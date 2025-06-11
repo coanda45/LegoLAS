@@ -24,5 +24,3 @@ streamlit
 # RoboFlow
 roboflow
 
-io
-base64
