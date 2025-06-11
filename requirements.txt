@@ -20,3 +20,9 @@ uvicorn
 
 # web
 streamlit
+
+# RoboFlow
+roboflow
+
+io
+base64
