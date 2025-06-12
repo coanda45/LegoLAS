@@ -36,8 +36,8 @@ if uploaded_file is not None:
         #              value=img_base64[:200] + "...", height=150)
 
         # URL de l'API (à adapter)
-        # api_url = "http://localhost:8000/predict/"
-        api_url = "https://legolas-733027877169.europe-west1.run.app/predict"
+
+        api_url = st.secrets["API_URL"]
 
         if st.button("If you are ready for part recognition, click-me !"):
             payload = {"img_base64": img_base64}
