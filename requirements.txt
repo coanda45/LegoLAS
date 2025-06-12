@@ -20,3 +20,6 @@ uvicorn
 
 # web
 streamlit
+
+# RoboFlow
+roboflow

@@ -3,7 +3,7 @@
 #      a slim or tensorflow base
 
 #      Standard version
-FROM python:3.12
+FROM python:3.10.6
 
 #      Slim version
 # FROM python:3.12-slim
@@ -21,8 +21,8 @@ COPY legolas legolas
 COPY api api
 
 # Make directories that we need, but that are not included in the COPY
-RUN mkdir /raw_data
-RUN mkdir /models
+# RUN mkdir /raw_data
+# RUN mkdir /models
 
 # COPY credentials.json credentials.json
 

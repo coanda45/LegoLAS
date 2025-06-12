@@ -1,8 +1,8 @@
 import requests
 import pandas as pd
 
-def classification(image_path):
 
+def classify_part(img_data):
     """
     Analyse une image LEGO via l'API Brickognize et retourne un DataFrame contenant les résultats.
 
@@ -26,8 +26,8 @@ def classification(image_path):
         >>> print(df.head())
     """
 
-    with open(image_path, "rb") as img_file:
-        img_data = img_file.read()
+    # with open(image_path, "rb") as img_file:
+    #     img_data = img_file.read()
 
     url = "https://api.brickognize.com/predict/"
 
@@ -42,11 +42,12 @@ def classification(image_path):
     response = requests.post(url, headers=headers, files=files)
 
     if response.status_code == 200:
-        response_json=response.json()
-        response_items=response_json['items']
+        response_json = response.json()
+        response_items = response_json['items']
         df = pd.DataFrame(response_items)
-
+        # print(df)
         return df
 
     else:
         print(f"Erreur {response.status_code}: {response.text}")
+        return pd.DataFrame()
