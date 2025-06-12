@@ -5,6 +5,8 @@ from base64 import b64encode, b64decode
 import requests
 import pandas as pd
 
+st.set_page_config(layout="wide")
+
 st.title("Please upload an image with your Lego parts :")
 
 uploaded_file = st.file_uploader("Choose a file", type=[
