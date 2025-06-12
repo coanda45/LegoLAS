@@ -5,9 +5,9 @@ from base64 import b64encode, b64decode
 import requests
 import pandas as pd
 
-st.title("Upload image, convert to JPEG, encode base64 & send to API")
+st.title("Please upload an image with your Lego parts :")
 
-uploaded_file = st.file_uploader("Choisis une image", type=[
+uploaded_file = st.file_uploader("Choose a file", type=[
                                  "png", "jpg", "jpeg", "bmp", "gif"])
 
 if uploaded_file is not None:
@@ -15,34 +15,34 @@ if uploaded_file is not None:
         # Ouvrir l'image avec PIL
         image = Image.open(uploaded_file)
 
-        st.image(image, caption="Image uploadée", use_container_width=True)
+        st.image(image, caption="Uploaded image", use_container_width=True)
 
         # Convertir en JPEG dans un buffer mémoire
         buf = io.BytesIO()
         image.convert("RGB").save(buf, format="JPEG")
         jpeg_bytes = buf.getvalue()
 
-        st.write("Image convertie en JPEG")
+        # st.write("Image converted to JPEG format")
 
         # Encoder en base64
         img_base64 = b64encode(jpeg_bytes).decode('utf-8')
 
-        st.write("Image encodée en base64")
+        # st.write("base64 image encoding")
 
         # Afficher une partie de la chaîne base64 (optionnel)
-        st.text_area("Base64 (extrait)",
-                     value=img_base64[:200] + "...", height=150)
+        # st.text_area("Base64 (excerpt)",
+        #              value=img_base64[:200] + "...", height=150)
 
         # URL de l'API (à adapter)
         # api_url = "http://localhost:8000/predict/"
         api_url = "https://legolas-733027877169.europe-west1.run.app/predict"
 
-        if st.button("Envoyer à l'API"):
+        if st.button("If you are ready for part recognition, click-me !"):
             payload = {"img_base64": img_base64}
             response = requests.post(api_url, json=payload)
 
             if response.status_code == 200:
-                st.success("Image envoyée avec succès !")
+                st.success("Image sent successfully!")
 
                 data = response.json()
 
@@ -68,4 +68,4 @@ if uploaded_file is not None:
                     f"Erreur API : {response.status_code} {response.text}")
 
     except Exception as e:
-        st.error(f"Erreur lors du traitement de l'image : {e}")
+        st.error(f"Error processing image: {e}")
