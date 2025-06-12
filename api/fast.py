@@ -191,3 +191,4 @@ def post_predict(data: ImageData):
         "image": b64encode(img_bytes).decode('utf-8'),
         "results": results.to_dict(orient="records")
     })
+
