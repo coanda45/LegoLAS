@@ -23,3 +23,5 @@ streamlit
 
 # RoboFlow
 roboflow
+
+streamlit-aggrid
