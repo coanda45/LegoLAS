@@ -87,11 +87,15 @@ def post_predict(data: ImageData):
 
     os.remove(temp_image_path)
 
+    image_orig = image.copy()
+    draw = ImageDraw.Draw(image)
+
     # results = []
     results = pd.DataFrame()
     for i, pred in enumerate(result["predictions"]):
         x, y = pred["x"], pred["y"]
         w, h = pred["width"], pred["height"]
+        confidence = pred["confidence"]
 
         # Roboflow donne les coordonnées du centre de la brique
         # Nous devons calculer les coordonnées du rectangle englobant
@@ -100,21 +104,15 @@ def post_predict(data: ImageData):
         right = int(x + w / 2)
         lower = int(y + h / 2)
 
-        # ✅ Protection contre débordement hors image
-        # left = max(0, left)
-        # upper = max(0, upper)
-        # right = min(image.width, right)
-        # lower = min(image.height, lower)
+        # Découpe
+        cropped = image_orig.crop((left, upper, right, lower))
 
-        # 🧱 Découpe
-        cropped = image.crop((left, upper, right, lower))
-
-        # 👁️ Affichage de l'image découpée
+        # Affichage de l'image découpée
         print(f"\n➡️ Brique #{i+1} : x={x}, y={y}, w={w}, h={h}")
         # cropped.show(title=f"Brique #{i+1}")
         cropped.show()
 
-        # 📨 Préparer l'image pour Brickognize
+        # Préparer l'image pour Brickognize
         buf = BytesIO()
         cropped.save(buf, format="JPEG")
         buf.seek(0)
@@ -122,31 +120,14 @@ def post_predict(data: ImageData):
         jpeg_bytes = buf.getvalue()
         img_base64 = b64encode(jpeg_bytes).decode('utf-8')
 
-        # 🔗 Envoi à Brickognize
-        # files = {
-        #     "query_image": (f"lego_{i}.jpg", buf, "image/jpeg")
-        # }
+        draw.rectangle([left, upper, right, lower], outline="black", width=4)
+        draw.text((left, upper - 10),
+                  f"Part : {i+1} ({confidence:.2f})", fill="black")
 
-        # response = requests.post(
-        #     BRICKOGNIZE_URL,
-        #     headers={"accept": "application/json"},
-        #     files=files
-        # )
-        # response.raise_for_status()
-
-        # results.append({
-        #     "bbox": pred,
-        #     "brickognize": response.json()
-        # })
-
-        # print(response.json()["items"][0]["name"])
-        # url = response.json()["items"][0]["img_url"]
-
-        # response = requests.get(url)
-        # img = Image.open(BytesIO(response.content))
-        # img.show()
+        # Envoi à Brickognize
         df = classify_part(buf)
 
+        # Tratement des résultats
         if not df.empty:
             expanded = df['external_sites'].apply(lambda x: x[0] if len(x) > 0 else None).apply(
                 pd.Series).drop(columns='name').rename(columns={'url': 'bricklink_url'})
@@ -160,28 +141,16 @@ def post_predict(data: ImageData):
 
             df.insert(loc=0, column='image_num', value=i+1)
 
+            df['color'] = "White"
+
+            df['keep'] = False
+            df.at[0, 'keep'] = True
+
             print(df)
 
             results = pd.concat([results, df], ignore_index=True)
 
     print(results)
-
-    draw = ImageDraw.Draw(image)
-
-    for pred in result["predictions"]:
-        x, y = pred["x"], pred["y"]
-        w, h = pred["width"], pred["height"]
-        label = pred["class"]
-        confidence = pred["confidence"]
-
-        left = int(x - w / 2)
-        upper = int(y - h / 2)
-        right = int(x + w / 2)
-        lower = int(y + h / 2)
-
-        draw.rectangle([left, upper, right, lower], outline="red", width=2)
-        draw.text((left, upper - 10),
-                  f"{label} ({confidence:.2f})", fill="red")
 
     buffer = BytesIO()
     image.save(buffer, format="JPEG")
@@ -191,4 +160,3 @@ def post_predict(data: ImageData):
         "image": b64encode(img_bytes).decode('utf-8'),
         "results": results.to_dict(orient="records")
     })
-

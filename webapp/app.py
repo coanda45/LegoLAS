@@ -12,7 +12,10 @@ st.title("Please upload an image with your Lego parts :")
 uploaded_file = st.file_uploader("Choose a file", type=[
                                  "png", "jpg", "jpeg", "bmp", "gif"])
 
-if uploaded_file is not None:
+lego_colors = pd.read_csv("./webapp/Lego_Colors.csv",
+                          delimiter=';', encoding='utf-8')
+
+if uploaded_file:
     try:
         # Ouvrir l'image avec PIL
         image = Image.open(uploaded_file)
@@ -35,39 +38,54 @@ if uploaded_file is not None:
         # st.text_area("Base64 (excerpt)",
         #              value=img_base64[:200] + "...", height=150)
 
-        # URL de l'API (à adapter)
-
-        api_url = st.secrets["API_URL"]
-
-        if st.button("If you are ready for part recognition, click-me !"):
+        # Only call the API once
+        if "api_data" not in st.session_state:
+            api_url = st.secrets["API_URL"]
             payload = {"img_base64": img_base64}
-            response = requests.post(api_url, json=payload)
+            with st.spinner("Calling API..."):
+                response = requests.post(api_url, json=payload)
+                if response.status_code == 200:
+                    st.session_state.api_data = response.json()
+                    data = st.session_state.api_data
+                    df = pd.DataFrame(data["results"])
+                else:
+                    st.error("API call failed")
+                    st.stop()
 
-            if response.status_code == 200:
-                st.success("Image sent successfully!")
+        # Use cached result
+        st.image(b64decode(st.session_state.api_data["image"]))
 
-                data = response.json()
+        # Store edited version in session_state
+        if "edited_df" not in st.session_state:
+            st.session_state.edited_df = df.copy()
+            # print(type(st.session_state.edited_df))
+            st.session_state.edited_df["img_base64"] = st.session_state.edited_df["img_base64"].apply(
+                lambda b64: f"data:image/jpeg;base64,{b64}")
 
-                st.image(b64decode(data["image"]))
+        # print(type(st.session_state.edited_df))
 
-                df = pd.DataFrame(data["results"])
+        before_df = st.session_state.edited_df.copy()
 
-                df['img_base64'] = df['img_base64'].apply(
-                    lambda b64: f'<img src="data:image/jpeg;base64,{b64}" width="80"/>'
-                )
+        st.session_state.edited_df = st.data_editor(
+            st.session_state.edited_df,
+            column_config={
+                "keep": st.column_config.CheckboxColumn("Keep this part?"),
+                "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
+                "img_url": st.column_config.ImageColumn("From URL"),
+                "img_base64": st.column_config.ImageColumn("From Base64"),
+                "color": st.column_config.SelectboxColumn("Color", options=lego_colors["Name"].to_list()),
+            },
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            key="changes"
+        )
 
-                df['img_url'] = df['img_url'].apply(
-                    lambda url: f'<img src="{url}" width="80"/>')
-
-                df['bricklink_url'] = df['bricklink_url'].apply(
-                    lambda url: f'<a href="{url}" target="_blank">View on BrickLink</a>'
-                )
-
-                html_table = df.to_html(escape=False, index=False)
-                st.markdown(html_table, unsafe_allow_html=True)
-            else:
-                st.error(
-                    f"Erreur API : {response.status_code} {response.text}")
+        # print(before_df.head())
+        # print(st.session_state.edited_df.head())
+        # print(before_df.compare(edited_df))
+        if not before_df.equals(st.session_state.edited_df):
+            st.rerun()
 
     except Exception as e:
         st.error(f"Error processing image: {e}")
