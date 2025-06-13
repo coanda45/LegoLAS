@@ -9,6 +9,7 @@ import pandas as pd
 
 KEY_USER = "91e7670a51c5f4decf0dc3cd270c973d"
 
+
 def get_rebrickable_id(bricklink_id):
     """
     Récupère l'ID Rebrickable associé à un ID BrickLink via l'API.
@@ -28,6 +29,7 @@ def get_rebrickable_id(bricklink_id):
     data = response.json()
     results = data.get("results", [])
     return results[0]["part_num"] if results else None
+
 
 def export_bricklink_to_rebrickable_csv(bricklink_ids, output_file="list_parts.csv"):
     """
@@ -67,7 +69,7 @@ def export_bricklink_to_rebrickable_csv(bricklink_ids, output_file="list_parts.c
     existing_data = {}
     max_ids_per_row = 0
 
-    #Lire les données existantes (s'il y a un fichier)
+    # Lire les données existantes (s'il y a un fichier)
     if os.path.isfile(output_file):
         with open(output_file, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
@@ -77,7 +79,8 @@ def export_bricklink_to_rebrickable_csv(bricklink_ids, output_file="list_parts.c
                 color_id = row[1]
                 quantity = int(row[2])
                 rebrickable_ids = row[3:]
-                existing_data[bl_id] = [bl_id, int(color_id), quantity] + rebrickable_ids
+                existing_data[bl_id] = [bl_id, int(
+                    color_id), quantity] + rebrickable_ids
                 max_ids_per_row = max(max_ids_per_row, len(rebrickable_ids))
 
     for idx, bl_id in enumerate(bricklink_ids):
@@ -97,7 +100,8 @@ def export_bricklink_to_rebrickable_csv(bricklink_ids, output_file="list_parts.c
             existing_data[bl_id] = [bl_id, 9999, 1] + rebrickable_ids
 
     # Réécriture complète avec header dans l’ordre souhaité
-    header = ["Bricklink_ID", "color_id", "quantity"] + [f"Rebrickable_ID_{i+1}" for i in range(max_ids_per_row)]
+    header = ["Bricklink_ID", "color_id", "quantity"] + \
+        [f"Rebrickable_ID_{i+1}" for i in range(max_ids_per_row)]
 
     with open(output_file, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
@@ -108,6 +112,7 @@ def export_bricklink_to_rebrickable_csv(bricklink_ids, output_file="list_parts.c
             writer.writerow(row)
 
     print(f"\n✅ Fichier CSV mis à jour : {output_file}")
+
 
 def get_user_token(USER_NAME, PASSWORD):
     """
@@ -158,7 +163,8 @@ def get_user_token(USER_NAME, PASSWORD):
         print(f"Erreur {response.status_code} : {response.text}")
         return None
 
-def create_partlist(user_token, name_new_list,list_type=1):
+
+def create_partlist(user_token, name_new_list, list_type=1):
     """
     Crée une nouvelle Part List.
     - name (str): nom de la liste.
@@ -168,35 +174,39 @@ def create_partlist(user_token, name_new_list,list_type=1):
     """
     url = f"https://rebrickable.com/api/v3/users/{user_token}/partlists/"
     headers = {"Authorization": f"key {KEY_USER}"}
-    payload = {"name": name_new_list , "type": list_type}
+    payload = {"name": name_new_list, "type": list_type}
 
     try:
         resp = requests.post(url, headers=headers, json=payload)
         resp.raise_for_status()
-        data= resp.json()
+        data = resp.json()
         return data
 
     except HTTPError as http_err:
         if resp.status_code == 400 or resp.status_code == 409:
             # Souvent erreur 409 pour conflit / doublon
-            print(f"Erreur : une liste avec le nom '{name_new_list}' existe déjà, merci de renseigner un nouveau nom")
+            print(
+                f"Erreur : une liste avec le nom '{name_new_list}' existe déjà, merci de renseigner un nouveau nom")
         else:
             print(f"Erreur HTTP {resp.status_code} : {resp.text}")
         return None
 
-def get_id_list(name_new_list,user_token):
+
+def get_id_list(name_new_list, user_token):
     try:
-        data_list = create_partlist(user_token, name_new_list ,list_type=1)
+        data_list = create_partlist(user_token, name_new_list, list_type=1)
         id_list = data_list.get('id')
         return id_list
 
     except HTTPError as http_err:
         if resp.status_code == 400 or resp.status_code == 409:
             # Souvent erreur 409 pour conflit / doublon
-            print(f"Erreur : une liste avec le nom '{name_new_list}' existe déjà.")
+            print(
+                f"Erreur : une liste avec le nom '{name_new_list}' existe déjà.")
         else:
             print(f"Erreur HTTP {resp.status_code} : {resp.text}")
         return None
+
 
 def delete_partlist(user_token, id_list):
     url = f"https://rebrickable.com/api/v3/users/{user_token}/partlists/{id_list}/"
@@ -207,7 +217,9 @@ def delete_partlist(user_token, id_list):
     if response.status_code == 204:
         print(f"✅ Partlist {id_list} supprimée avec succès.")
     else:
-        print(f"❌ Erreur {response.status_code} lors de la suppression : {response.text}")
+        print(
+            f"❌ Erreur {response.status_code} lors de la suppression : {response.text}")
+
 
 def csv_to_json_parts(csv_file):
     """
@@ -251,6 +263,7 @@ def csv_to_json_parts(csv_file):
                 })
     return parts_list
 
+
 def add_parts_to_partlist(user_token, id_list, json_parts):
     """
     Ajoute plusieurs parts à une partlist Rebrickable.
@@ -274,7 +287,8 @@ def add_parts_to_partlist(user_token, id_list, json_parts):
     response.raise_for_status()
     print(f"Les pièces ont bien été ajoutées à la liste")
 
-def can_build_set(user_token,set_num):
+
+def can_build_set(user_token, set_num):
     """
     Vérifie si l'utilisateur peut construire un set donné avec ses pièces.
 
@@ -295,17 +309,19 @@ def can_build_set(user_token,set_num):
     response.raise_for_status()  # Lève une erreur si la requête échoue
     return response.json()
 
+
 def do_set_with_myparts(set_num, user_token):
 
-    result=can_build_set(user_token, set_num)
-    info = {" Set":[set_num],
+    result = can_build_set(user_token, set_num)
+    info = {" Set": [set_num],
             "Pieces total du set": [result.get('total_parts')],
-        "% pièces possédée du set" : [round(result.get('pct_owned'),1)],
-        "Nombre pièce manquante" : [result.get('num_missing')],
-        }
+            "% pièces possédée du set": [round(result.get('pct_owned'), 1)],
+            "Nombre pièce manquante": [result.get('num_missing')],
+            }
 
-    df=pd.DataFrame(info)
+    df = pd.DataFrame(info)
     return df
+
 
 def part_set(set_num):
     """
@@ -348,15 +364,17 @@ def part_set(set_num):
             part_num = item["part"]["part_num"]
             quantity = item["quantity"]
             color = item["color"]["id"]
-            rows.append({"part_num": part_num, "quantity": quantity, "color": color})
+            rows.append(
+                {"part_num": part_num, "quantity": quantity, "color": color})
 
-        url = result.get("next")  # Passe à la page suivante si elle existe, sinon None
+        # Passe à la page suivante si elle existe, sinon None
+        url = result.get("next")
 
     df = pd.DataFrame(rows)
     return df
 
-def part_color(bricklink_id):
 
+def part_colors(bricklink_id):
     """
     Récupère toutes les couleurs disponibles pour une pièce LEGO, à partir de son ID BrickLink.
 
@@ -390,7 +408,8 @@ def part_color(bricklink_id):
             "num_sets": item["num_sets"],
             "num_set_parts": item["num_set_parts"],
             "part_img_url": item["part_img_url"],
-            "elements": ', '.join(item["elements"])  # Convertit la liste en une chaîne de texte
+            # Convertit la liste en une chaîne de texte
+            "elements": ', '.join(item["elements"])
         })
 
     # Convertir en DataFrame pandas

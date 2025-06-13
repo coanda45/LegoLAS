@@ -9,6 +9,7 @@ from io import BytesIO
 # TODO: Import your package, replace this by explicit imports of what you need
 from legolas.segmentation.registry import load_model
 from legolas.classification.main import classify_part
+from legolas.API_rebrickable.main_api import part_colors
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -145,6 +146,15 @@ def post_predict(data: ImageData):
 
             df['keep'] = False
             df.at[0, 'keep'] = True
+
+            def _part_colors(x):
+                _results = part_colors(x)
+                print(_results.rebrickable_id[0])
+                print(_results.color_name.to_list())
+                return _results.rebrickable_id[0], _results.color_name.to_list()
+
+            df[["rebrickable_id", "colors"]] = df['id'].apply(
+                lambda x: pd.Series(_part_colors(x)))
 
             print(df)
 
