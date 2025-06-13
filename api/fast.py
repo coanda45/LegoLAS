@@ -23,6 +23,7 @@ import cv2
 from legolas.segmentation.registry import load_model_RF, load_SAM
 from legolas.classification.main import classify_part
 from legolas.segmentation.constants import RESIZE_VALUES, SAM_CONFIG_1, IMG_08_SIZE, ROBOFLOW_PROJECT_ID_LOD, ROBOFLOW_PROJECT_VERSION_LOD, ROBOFLOW_PROJECT_ID_LBD, ROBOFLOW_PROJECT_VERSION_LBD
+from legolas.API_rebrickable.main_api import part_colors
 from scripts.utils import resize_SAM_masks
 
 load_dotenv(dotenv_path="../.env", override=True)
@@ -117,7 +118,7 @@ def post_predict(data: PostPredictData):
             "image": None,
             "results": None
         },
-                            status_code=555)
+            status_code=555)
 
     os.remove(temp_image_path)
     image_orig = image.copy()
@@ -181,7 +182,17 @@ def post_predict(data: PostPredictData):
             df['keep'] = False
             df.at[0, 'keep'] = True
 
+            def _part_colors(x):
+                _results = part_colors(x)
+                print(_results.rebrickable_id[0])
+                print(_results.color_name.to_list())
+                return _results.rebrickable_id[0], _results.color_name.to_list()
+
+            df[["rebrickable_id", "colors"]] = df['id'].apply(
+                lambda x: pd.Series(_part_colors(x)))
+
             # print(df)
+
             results = pd.concat([results, df], ignore_index=True)
 
     # print(results)
