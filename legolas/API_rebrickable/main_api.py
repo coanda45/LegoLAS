@@ -355,49 +355,6 @@ def part_set(set_num):
     df = pd.DataFrame(rows)
     return df
 
-def part_color(part_num):
-    """
-    Récupère toutes les couleurs disponibles pour une pièce LEGO via l'API Rebrickable.
-
-    Args:
-        part_num (str): Le numéro de la pièce LEGO.
-
-    Returns:
-        pandas.DataFrame: Un DataFrame contenant les détails des couleurs disponibles pour cette pièce.
-
-    Raises:
-        requests.exceptions.HTTPError: Si la requête à l'API échoue.
-    """
-    url = f"https://rebrickable.com/api/v3/lego/parts/{part_num}/colors/"
-
-    headers = {
-        'Accept': 'application/json',
-        "Authorization": f"key {KEY_USER}"
-    }
-
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()  # Gérer les erreurs HTTP
-
-    data = response.json()
-
-    # Construire une liste des résultats sous forme de dictionnaire
-    rows = []
-    for item in data['results']:
-        rows.append({
-            "part_num": part_num,
-            "color_id": item['color_id'],
-            "color_name": item['color_name'],
-            "num_sets": item['num_sets'],
-            "num_set_parts": item['num_set_parts'],
-            "part_img_url": item['part_img_url'],
-            "elements": ', '.join(item['elements'])  # Convertit la liste en chaîne
-        })
-
-    # Convertir en DataFrame pandas
-    df = pd.DataFrame(rows)
-
-    return df
-
 def part_color(bricklink_id):
     """
     Récupère toutes les couleurs disponibles pour une pièce LEGO, à partir de son ID BrickLink.
