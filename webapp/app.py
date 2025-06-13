@@ -58,12 +58,17 @@ if uploaded_file:
         # Store edited version in session_state
         if "edited_df" not in st.session_state:
             st.session_state.edited_df = df.copy()
+            # print(type(st.session_state.edited_df))
             st.session_state.edited_df["img_base64"] = st.session_state.edited_df["img_base64"].apply(
                 lambda b64: f"data:image/jpeg;base64,{b64}")
 
         edited_df = st.session_state.edited_df
 
-        st.session_state.edited_df = st.data_editor(
+        # print(type(st.session_state.edited_df))
+
+        before_df = st.session_state.edited_df.copy()
+
+        edited_df = st.data_editor(
             edited_df,
             column_config={
                 "keep": st.column_config.CheckboxColumn("Keep this part?"),
@@ -77,6 +82,13 @@ if uploaded_file:
             num_rows="fixed",
             key="changes"
         )
+
+        st.session_state.edited_df = edited_df
+        # print(before_df.head())
+        # print(edited_df.head())
+        # print(before_df.compare(edited_df))
+        if not before_df.equals(edited_df):
+            st.rerun()
 
     except Exception as e:
         st.error(f"Error processing image: {e}")
