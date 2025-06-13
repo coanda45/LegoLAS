@@ -1,3 +1,5 @@
+
+
 import requests
 import csv
 import time
@@ -8,26 +10,6 @@ from requests.exceptions import HTTPError
 import pandas as pd
 
 KEY_USER = "91e7670a51c5f4decf0dc3cd270c973d"
-
-def get_rebrickable_id(bricklink_id):
-    """
-    Récupère l'ID Rebrickable associé à un ID BrickLink via l'API.
-
-    Args:
-        bricklink_id (str): L'identifiant BrickLink de la pièce.
-
-    Returns:
-        str: L'identifiant Rebrickable correspondant, ou None si non trouvé.
-    """
-    HEADERS = {"Authorization": f"key {KEY_USER}"}
-    url = "https://rebrickable.com/api/v3/lego/parts/"
-
-    params = {"bricklink_id": bricklink_id}
-    response = requests.get(url, headers=HEADERS, params=params)
-    response.raise_for_status()
-    data = response.json()
-    results = data.get("results", [])
-    return results[0]["part_num"] if results else None
 
 def export_bricklink_to_rebrickable_csv(bricklink_ids, output_file="list_parts.csv"):
     """
@@ -83,8 +65,12 @@ def export_bricklink_to_rebrickable_csv(bricklink_ids, output_file="list_parts.c
     for idx, bl_id in enumerate(bricklink_ids):
         print(f"[{idx+1}/{len(bricklink_ids)}] Recherche : {bl_id}")
         try:
-            rebrickable_id = get_rebrickable_id(bl_id)
-            rebrickable_ids = [rebrickable_id] if rebrickable_id else []
+            params = {"bricklink_id": bl_id}
+            response = requests.get(URL, headers=HEADERS, params=params)
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("results", [])
+            rebrickable_ids = [part["part_num"] for part in results] if results else []
         except Exception as e:
             print(f"❌ Erreur pour {bl_id} : {e}")
             rebrickable_ids = []
@@ -157,6 +143,16 @@ def get_user_token(USER_NAME, PASSWORD):
     else:
         print(f"Erreur {response.status_code} : {response.text}")
         return None
+
+# def get_partlists(user_token,KEY_USER):
+#     """
+#     Récupère la liste des Part Lists associées à un utilisateur Rebrickable.
+#     """
+#     url = f"https://rebrickable.com/api/v3/users/{user_token}/partlists/"
+#     headers = {"Authorization": f"key {KEY_USER}"}
+#     response = requests.get(url, headers=headers)
+#     response.raise_for_status()
+#     return response.json()
 
 def create_partlist(user_token, name_new_list,list_type=1):
     """
@@ -353,89 +349,4 @@ def part_set(set_num):
         url = result.get("next")  # Passe à la page suivante si elle existe, sinon None
 
     df = pd.DataFrame(rows)
-    return df
-
-def part_color(part_num):
-    """
-    Récupère toutes les couleurs disponibles pour une pièce LEGO via l'API Rebrickable.
-
-    Args:
-        part_num (str): Le numéro de la pièce LEGO.
-
-    Returns:
-        pandas.DataFrame: Un DataFrame contenant les détails des couleurs disponibles pour cette pièce.
-
-    Raises:
-        requests.exceptions.HTTPError: Si la requête à l'API échoue.
-    """
-    url = f"https://rebrickable.com/api/v3/lego/parts/{part_num}/colors/"
-
-    headers = {
-        'Accept': 'application/json',
-        "Authorization": f"key {KEY_USER}"
-    }
-
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()  # Gérer les erreurs HTTP
-
-    data = response.json()
-
-    # Construire une liste des résultats sous forme de dictionnaire
-    rows = []
-    for item in data['results']:
-        rows.append({
-            "part_num": part_num,
-            "color_id": item['color_id'],
-            "color_name": item['color_name'],
-            "num_sets": item['num_sets'],
-            "num_set_parts": item['num_set_parts'],
-            "part_img_url": item['part_img_url'],
-            "elements": ', '.join(item['elements'])  # Convertit la liste en chaîne
-        })
-
-    # Convertir en DataFrame pandas
-    df = pd.DataFrame(rows)
-
-    return df
-
-def part_color(bricklink_id):
-    """
-    Récupère toutes les couleurs disponibles pour une pièce LEGO, à partir de son ID BrickLink.
-
-    Args:
-        bricklink_id (str): L'identifiant BrickLink.
-
-    Returns:
-        pandas.DataFrame: Un DataFrame contenant les détails des couleurs disponibles pour cette pièce.
-    """
-
-    HEADERS = {"Authorization": f"key {KEY_USER}"}
-    rebrickable_id = get_rebrickable_id(bricklink_id)
-
-    if not rebrickable_id:
-        print(f" Aucun ID Rebrickable trouvé pour {bricklink_id}.")
-        return pd.DataFrame()  # Retourne un DataFrame vide si aucun ID Rebrickable n'est trouvé
-
-    url = f"https://rebrickable.com/api/v3/lego/parts/{rebrickable_id}/colors/"
-    response = requests.get(url, headers=HEADERS)
-    response.raise_for_status()
-    data = response.json()
-
-    # Construire une liste des résultats sous forme de dictionnaire
-    rows = []
-    for item in data["results"]:
-        rows.append({
-            "bricklink_id": bricklink_id,
-            "rebrickable_id": rebrickable_id,
-            "color_id": item["color_id"],
-            "color_name": item["color_name"],
-            "num_sets": item["num_sets"],
-            "num_set_parts": item["num_set_parts"],
-            "part_img_url": item["part_img_url"],
-            "elements": ', '.join(item["elements"])  # Convertit la liste en une chaîne de texte
-        })
-
-    # Convertir en DataFrame pandas
-    df = pd.DataFrame(rows)
-
     return df
