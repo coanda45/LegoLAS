@@ -62,14 +62,12 @@ if uploaded_file:
             st.session_state.edited_df["img_base64"] = st.session_state.edited_df["img_base64"].apply(
                 lambda b64: f"data:image/jpeg;base64,{b64}")
 
-        edited_df = st.session_state.edited_df
-
         # print(type(st.session_state.edited_df))
 
         before_df = st.session_state.edited_df.copy()
 
-        edited_df = st.data_editor(
-            edited_df,
+        st.session_state.edited_df = st.data_editor(
+            st.session_state.edited_df,
             column_config={
                 "keep": st.column_config.CheckboxColumn("Keep this part?"),
                 "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
@@ -83,11 +81,10 @@ if uploaded_file:
             key="changes"
         )
 
-        st.session_state.edited_df = edited_df
         # print(before_df.head())
-        # print(edited_df.head())
+        # print(st.session_state.edited_df.head())
         # print(before_df.compare(edited_df))
-        if not before_df.equals(edited_df):
+        if not before_df.equals(st.session_state.edited_df):
             st.rerun()
 
     except Exception as e:
