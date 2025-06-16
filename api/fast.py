@@ -79,9 +79,6 @@ def post_predict(data: PostPredictData):
         _type_: _description_
     """
 
-    # BCLTMP force model
-    data.model = "RF"
-
     temp_image_path = "temp.jpeg"
     with open(temp_image_path, "wb") as tmp_file:
         tmp_file.write(b64decode(data.img_base64))
@@ -89,7 +86,7 @@ def post_predict(data: PostPredictData):
     # image.show()  # debug, display img in another window
 
     if data.model == "RF":
-        result = app.state.model.predict(
+        result = app.state.model_RF.predict(
         temp_image_path, confidence=40, overlap=30).json()
         preds = result["predictions"]
 
@@ -97,12 +94,12 @@ def post_predict(data: PostPredictData):
         image_arr = cv2.imread(temp_image_path)
         image_arr = cv2.cvtColor(image_arr, cv2.COLOR_BGR2RGB)
         # mask_generator = SamAutomaticMaskGenerator(model=model, **SAM_CONFIG_1)
-        # preds = mask_generator.generate(image_arr)
-        preds = SAM_TEST_MASKS  # masks are renamed "preds" for consistency with RF
+        # preds = mask_generator.generate(image_arr)  # masks are renamed "preds" for consistency with RF
+        preds = SAM_TEST_MASKS  # TMP use precomputed results, since a Google Colab CPU computation lasts for 26 minutes :(
 
     else:
         warnings.warn(f"data.model must be either 'RF' or 'SAM', got '{data.model}'")
-        return JSONResponse(content={})
+        return JSONResponse(content={"image": None, "results": None}, status_code=555)
 
     os.remove(temp_image_path)
     image_orig = image.copy()
@@ -144,7 +141,7 @@ def post_predict(data: PostPredictData):
         font = ImageFont.truetype("resources/Roboto_Condensed-Medium.ttf", size=32)
         draw.rectangle([left, upper, right, lower], outline="black", width=4)
         draw.text((left, upper-32), f"#{i+1}", fill="black", font=font)
-        # Ajoute un contour blanc autour des caracteres pour rester lisible sur fond fonce. Mais heu ca marche pas
+        # Ajoute un contour blanc autour des caracteres pour etre lisibles sur fond sombre. Mais heu ca marche pas
         # for dx in [-1, 0, 1]:
         #     for dy in [-1, 0, 1]:
         #         if dx != 0 or dy != 0:

@@ -40,17 +40,30 @@ if uploaded_file:
 
         # Only call the API once
         if "api_data" not in st.session_state:
-            api_url = st.secrets["API_URL"]
-            payload = {"img_base64": img_base64, "model": "SAM"}  # BCLTMP
-            with st.spinner("Calling API..."):
-                response = requests.post(api_url, json=payload)
-                if response.status_code == 200:
-                    st.session_state.api_data = response.json()
-                    data = st.session_state.api_data
-                    df = pd.DataFrame(data["results"])
-                else:
-                    st.error("API call failed")
-                    st.stop()
+            st.write("Choose a brick detection model:")
+            is_model_chosen = False
+            if st.button("Quick and dirty"):
+                model_name = "RF"
+                is_model_chosen = True
+            elif st.button("Slow but comprehensive (hopefully)"):
+                model_name = "SAM"
+                is_model_chosen = True
+
+            if is_model_chosen:
+                api_url = st.secrets["API_URL"]
+                payload = {"img_base64": img_base64, "model": model_name}
+                with st.spinner("Calling API..."):
+                    response = requests.post(api_url, json=payload)
+                    if response.status_code == 200:
+                        st.session_state.api_data = response.json()
+                        data = st.session_state.api_data
+                        df = pd.DataFrame(data["results"])
+                    elif response.status_code == 555:
+                        st.error("Error recovering brick dataframe. Double-check the name of the segmentation model")
+                        st.stop()
+                    else:
+                        st.error("API call failed")
+                        st.stop()
 
         # Use cached result
         st.image(b64decode(st.session_state.api_data["image"]))
