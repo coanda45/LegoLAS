@@ -94,27 +94,41 @@ if uploaded_file:
                 pass
 
         if "edited_df" in st.session_state:
+            # print(type(st.session_state.edited_df))
+
             before_df = st.session_state.edited_df.copy()
+
+            # Appliquer un fond coloré dans la colonne "detected_color"
+            def style_color_column(row):
+                return [
+                    f'background-color: {row["detected_color_rgb"]}' if col == "detected_color" else ''
+                    for col in row.index
+                ]
+            # def color_bg(val):
+            #     return f'background-color: {val}'
+
+            # styled_df = st.session_state.edited_df.style.map(
+            #     color_bg, subset=["detected_color_rgb"])
+            # Appliquer le style ligne par ligne
+            styled_df = st.session_state.edited_df.style.apply(
+                style_color_column, axis=1)
+
             st.session_state.edited_df = st.data_editor(
-                st.session_state.edited_df,
+                styled_df,
                 column_config={
-                    "keep":
-                    st.column_config.CheckboxColumn("Keep this part?"),
-                    "bricklink_url":
-                    st.column_config.LinkColumn("BrickLink",
-                                                display_text="View"),
-                    "img_url":
-                    st.column_config.ImageColumn("From URL"),
-                    "img_base64":
-                    st.column_config.ImageColumn("From Base64"),
-                    "color":
-                    st.column_config.SelectboxColumn(
-                        "Color", options=lego_colors["Name"].to_list())
+                    "keep": st.column_config.CheckboxColumn("Keep this part?"),
+                    "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
+                    "img_url": st.column_config.ImageColumn("From URL"),
+                    "img_base64": st.column_config.ImageColumn("From Base64"),
+                    "color": st.column_config.SelectboxColumn("Color", options=lego_colors["Name"].to_list()),
+                    "detected_color_rgb": None
                 },
                 use_container_width=True,
                 hide_index=True,
                 num_rows="fixed",
-                key="changes")
+                key="changes",
+                disabled=["detected_color"],
+            )
 
             # print(before_df.head())
             # print(st.session_state.edited_df.head())

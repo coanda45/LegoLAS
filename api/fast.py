@@ -23,6 +23,7 @@ import cv2
 from legolas.segmentation.registry import load_model_RF, load_SAM
 from legolas.classification.main import classify_part
 from legolas.segmentation.constants import RESIZE_VALUES, SAM_CONFIG_1, IMG_08_SIZE, ROBOFLOW_PROJECT_ID_LOD, ROBOFLOW_PROJECT_VERSION_LOD, ROBOFLOW_PROJECT_ID_LBD, ROBOFLOW_PROJECT_VERSION_LBD
+from legolas.classification.lego_color_detector import load_lego_colors, detect_lego_color
 from legolas.API_rebrickable.main_api import part_colors
 from scripts.utils import resize_SAM_masks
 
@@ -67,7 +68,12 @@ def root():
     return {'message': "Welcome traveler. How did you end up here?"}
 
 
-# Endpoint for https://your-domain.com/predict?input_one=69&input_two=420
+lego_colors = load_lego_colors(
+    "./legolas/classification/lego_colors_rebrickable.csv")
+
+# Endpoint for https://your-domain.com/predict?input_one=154&input_two=199
+
+
 @app.post("/predict")
 def post_predict(data: PostPredictData):
     """From an input image:
@@ -181,6 +187,9 @@ def post_predict(data: PostPredictData):
             df['color'] = "White"
             df['keep'] = False
             df.at[0, 'keep'] = True
+
+            df[['detected_color',
+                'detected_color_rgb']] = detect_lego_color(buf, lego_colors)
 
             def _part_colors(x):
                 _results = part_colors(x)
