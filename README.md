@@ -23,7 +23,7 @@ LegoLAS repose sur des techniques avancées de reconnaissance d'image et d'analy
 
   ### 🔍 Classification
   Les pièces segmentées sont classées via Brickognize, une API basée sur les réseaux de neurones convolutifs (CNNs), précision du modèle : 91,33 % en conditions réelles, 98,7 % en environnement contrôlé.
-  - Attribution des références Brinkink en fonction de leur forme.
+  - Attribution des références Brinklink en fonction de leur forme.
   - Comparaison avec une base de données Rebrickable (API) pour obtenir les identifiants Rebrickable.
   - Obtention de la couleur de la pièce par ⚠️ "AJOUTER LA TECHNIQUE UTILISE"⚠️
 
@@ -40,7 +40,7 @@ LegoLAS repose sur des techniques avancées de reconnaissance d'image et d'analy
   - Pandas pour l’analyse et la gestion des données.
   - Segment Anything Model (SAM) pour la segmentation des pièces LEGO.
   - API Brickognize pour la classification des pièces LEGO.
-  - API Rebrickable pour complétude des détails complémentaire.
+  - API Rebrickable pour récupération des détails complémentaires
   - Exploitation des CSV (DataBase Rebrickable) pour proposition des sets.
 
 
