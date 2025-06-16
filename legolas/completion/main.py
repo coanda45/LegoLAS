@@ -1,12 +1,19 @@
 import os
 import pandas as pd
+import gzip
+import re
+import datetime
+from urllib import request
+import shutil
 
 #Functions:
 
 
-def list_set_contenant_au_moins_une_des_pieces(list_part_num: dict,
-                                               nombre_part_min_par_set: int = 5
-                                               ):
+def list_set_contenant_au_moins_une_des_pieces(
+    list_part_num: dict,
+    df_inventory_parts,
+    nombre_part_min_par_set: int = 5,
+):
     '''
     Sur la base d'un dictionnaire de part_num disponibles (list_part_num), la
     fonction renvoie une dataframe avec l'ensemble des sets utilisant au moins
@@ -369,38 +376,253 @@ def generation_df_ac_pourcentage_pieces_manquantes(liste_parts_disponibles,
     return df
 
 
-# Chargement csv
-#table principale
-csv_path_inventories = 'inventories.csv'
+def generate_test_liste_part_disponible():
+    '''
+    A remplacer par la liste récupérée après l'API de Cassille
+    '''
+    liste_parts_disponibles = [
+        {
+            'part_num': '2343',
+            'quantity': 1,
+            'color_id': 45
+        },
+        {
+            'part_num': '3003',
+            'quantity': 1,
+            'color_id': 29
+        },
+        {
+            'part_num': '30176',
+            'quantity': 1,
+            'color_id': 2
+        },
+        {
+            'part_num': '3020',
+            'quantity': 1,
+            'color_id': 15
+        },
+        {
+            'part_num': '3022',
+            'quantity': 2,
+            'color_id': 15
+        },
+        {
+            'part_num': '3023',
+            'quantity': 1,
+            'color_id': 15
+        },
+        {
+            'part_num': '30357',
+            'quantity': 4,
+            'color_id': 29
+        },
+        {
+            'part_num': '3039',
+            'quantity': 1,
+            'color_id': 15
+        },
+        {
+            'part_num': '3062b',
+            'quantity': 1,
+            'color_id': 15
+        },
+        {
+            'part_num': '3068b',
+            'quantity': 1,
+            'color_id': 29
+        },
+        {
+            'part_num': '3069b',
+            'quantity': 5,
+            'color_id': 27
+        },
+        {
+            'part_num': '3069b',
+            'quantity': 2,
+            'color_id': 29
+        },
+        {
+            'part_num': '33291',
+            'quantity': 3,
+            'color_id': 191
+        },
+        {
+            'part_num': '3795',
+            'quantity': 1,
+            'color_id': 15
+        },
+        {
+            'part_num': '3941',
+            'quantity': 1,
+            'color_id': 27
+        },
+        {
+            'part_num': '3960',
+            'quantity': 1,
+            'color_id': 27
+        },
+        {
+            'part_num': '4032a',
+            'quantity': 1,
+            'color_id': 70
+        },
+        {
+            'part_num': '4865a',
+            'quantity': 3,
+            'color_id': 41
+        },
+        {
+            'part_num': '6141',
+            'quantity': 2,
+            'color_id': 27
+        },  #4
+        {
+            'part_num': '6141',
+            'quantity': 1,
+            'color_id': 29
+        },  #4
+        {
+            'part_num': '63965',
+            'quantity': 1,
+            'color_id': 15
+        },
+        {
+            'part_num': '85080',
+            'quantity': 4,
+            'color_id': 322
+        },  #4
+        #pièce en trop:
+        {
+            'part_num': '48395',
+            'quantity': 1,
+            'color_id': 7
+        },
+        {
+            'part_num': '48864c01',
+            'quantity': 1,
+            'color_id': 25
+        }
+    ]
+    return liste_parts_disponibles
 
-#premier niveau
-csv_path_sets = 'csv_rebrickable/sets.csv'
-csv_path_inventory_parts_1 = 'csv_rebrickable/inventory_parts_1.csv'
-csv_path_inventory_parts_2 = 'csv_rebrickable/inventory_parts_2.csv'
-csv_path_inventory_minifigs = 'csv_rebrickable/inventory_minifigs.csv'
 
-#deuxième niveau
-#pour set
-csv_path_themes = 'csv_rebrickable/themes.csv'
-#pour inventory_part
-csv_path_parts = 'csv_rebrickable/parts.csv'
-#pour inventory_minifigs
-csv_path_minifigs = 'csv_rebrickable/minifigs.csv'
+def purge(dir, pattern):
+    '''
+    Efface les fichiers du dossier dir respectant le pattern
+    '''
+    for f in os.listdir(dir):
+        if re.search(pattern, f):
+            os.remove(os.path.join(dir, f))
 
-#creations dataframes
-df_inventories = pd.read_csv(csv_path_inventories)
 
-df_sets = pd.read_csv(csv_path_sets)
-df_inventory_parts_1 = pd.read_csv(csv_path_inventory_parts_1)
-df_inventory_parts_2 = pd.read_csv(csv_path_inventory_parts_2)
-df_inventory_parts = pd.concat([df_inventory_parts_1, df_inventory_parts_2],
-                               axis='rows').reset_index(drop=True)
+def download_csv_files():
+    #url
+    inventories_path = 'https://cdn.rebrickable.com/media/downloads/inventories.csv.gz'
+    inventories_parts_path = 'https://cdn.rebrickable.com/media/downloads/inventory_parts.csv.gz'
+    sets_path = 'https://cdn.rebrickable.com/media/downloads/sets.csv.gz'
 
-df_inventory_minifigs = pd.read_csv(csv_path_inventory_minifigs)
+    #date
+    today = datetime.date.today()
+    today_f = datetime.datetime.strftime(today, '%y%m%d')
 
-df_themes = pd.read_csv(csv_path_themes)
-df_parts = pd.read_csv(csv_path_parts)
-df_minifigs = pd.read_csv(csv_path_minifigs)
+    #filenames
+    inventories_name = re.split(pattern='/', string=inventories_path)[-1]
+    inventories_parts_name = re.split(pattern='/',
+                                      string=inventories_parts_path)[-1]
+    sets_path_name = re.split(pattern='/', string=sets_path)[-1]
+
+    #ajout today date
+    inventories_dated_name = inventories_name[:-3] + "_" + today_f + '.gz'
+    inventories_parts_dated_name = inventories_parts_name[:
+                                                          -3] + "_" + today_f + '.gz'
+    sets_dated_name = sets_path_name[:-3] + "_" + today_f + '.gz'
+
+    #liens de sauvegarde
+    folder_inventories_path = os.path.dirname(
+        __file__) + '/' + f'tmp/{inventories_dated_name}'
+    folder_inventories_parts_path = os.path.dirname(
+        __file__) + '/' + f'tmp/{inventories_parts_dated_name}'
+    folder_sets_path = os.path.dirname(
+        __file__) + '/' + f'tmp/{sets_dated_name}'
+
+    tmp_dir = os.path.dirname(__file__) + '/tmp/'
+
+    #si les fichier gz datés existent déjà, on ne les retélécharge pas.
+    #sinon, on efface l'ancien gz et les csv unzippés.
+    if not os.path.isfile(folder_inventories_path):
+        #s'il n'existe pas on efface l'ancien fichier csv et gz
+        #s'il existe, on ne fait rien (on ne dl pas et on ne dezip pas)
+        dir = os.listdir(tmp_dir)
+        # Checking if the list is empty or not
+        if len(dir) > 0:
+            purge(tmp_dir, 'inventories.csv')
+
+        r_inv = request.urlretrieve(url=inventories_path,
+                                    filename=folder_inventories_path)
+
+    if not os.path.isfile(folder_inventories_parts_path):
+        #s'il n'existe pas on efface l'ancien fichier csv et gz
+        #s'il existe, on ne fait rien (on ne dl pas et on ne dezip pas)
+        dir = os.listdir(tmp_dir)
+        # Checking if the list is empty or not
+        if len(dir) > 0:
+            purge(tmp_dir, 'inventory_parts.csv')
+        r_inv_parts = request.urlretrieve(
+            url=inventories_parts_path, filename=folder_inventories_parts_path)
+
+    if not os.path.isfile(folder_sets_path):
+        #s'il n'existe pas on efface l'ancien fichier csv et gz
+        #s'il existe, on ne fait rien (on ne dl pas et on ne dezip pas)
+        dir = os.listdir(tmp_dir)
+        # Checking if the list is empty or not
+        if len(dir) > 0:
+            purge(tmp_dir, 'sets.csv')
+        r_sets = request.urlretrieve(url=sets_path, filename=folder_sets_path)
+
+        inventories_name = re.split(pattern='/', string=inventories_path)[-1]
+        inventories_parts_name = re.split(pattern='/',
+                                          string=inventories_parts_path)[-1]
+        sets_path_name = re.split(pattern='/', string=sets_path)[-1]
+
+    #si le fichier n'existe pas , on le créé.
+    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    if not os.path.isfile(tmp_dir + inventories_name[:-3]):
+        with gzip.open(folder_inventories_path, 'rb') as f_in:
+            with open(tmp_dir + inventories_name[:-3], 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+    #si le fichier n'existe pas , on le créé.
+    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    if not os.path.isfile(tmp_dir + inventories_parts_name[:-3]):
+        with gzip.open(folder_inventories_parts_path, 'rb') as f_in:
+            with open(tmp_dir + inventories_parts_name[:-3], 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+    #si le fichier n'existe pas , on le créé.
+    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    if not os.path.isfile(tmp_dir + sets_path_name[:-3]):
+        with gzip.open(folder_sets_path, 'rb') as f_in:
+            with open(tmp_dir + sets_path_name[:-3], 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+    #creations dataframes
+    df_inventories = pd.read_csv(tmp_dir + inventories_name[:-3])
+
+    df_inventory_parts = pd.read_csv(tmp_dir + inventories_parts_name[:-3])
+
+    df_sets = pd.read_csv(tmp_dir + sets_path_name[:-3])
+
+    return df_inventories, df_inventory_parts, df_sets
+
 
 if __name__ == "__main__":
-    generation_df_ac_pourcentage_pieces_manquantes()
+    df_inventories, df_inventory_parts, df_sets = download_csv_files()
+
+    liste_part_dispo = generate_test_liste_part_disponible()
+
+    df = generation_df_ac_pourcentage_pieces_manquantes(
+        liste_part_dispo,
+        list_set_contenant_au_moins_une_des_pieces(
+            liste_part_dispo, df_inventory_parts)).reset_index(drop=True)
+
+    print(df)
