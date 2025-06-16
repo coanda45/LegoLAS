@@ -41,7 +41,7 @@ if uploaded_file:
         # Only call the API once
         if "api_data" not in st.session_state:
             api_url = st.secrets["API_URL"]
-            payload = {"img_base64": img_base64}
+            payload = {"img_base64": img_base64, "model": "SAM"}  # BCLTMP
             with st.spinner("Calling API..."):
                 response = requests.post(api_url, json=payload)
                 if response.status_code == 200:

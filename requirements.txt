@@ -25,3 +25,9 @@ streamlit
 roboflow
 
 streamlit-aggrid
+
+# SAM
+segment_anything
+torch
+torchvision
+cv2
