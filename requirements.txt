@@ -18,10 +18,17 @@ pandas==2.2.3
 fastapi
 uvicorn
 
-# web
+# Web
 streamlit
 
 # RoboFlow
 roboflow
 
-streamlit-aggrid
+# SAM
+segment_anything
+torch
+torchvision
+cv2
+
+# Images
+Pillow>=10.0.0
