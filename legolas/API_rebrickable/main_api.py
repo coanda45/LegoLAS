@@ -448,7 +448,7 @@ def part_set(set_num):
     return df
 
 
-def part_color(bricklink_id):
+def part_colors(bricklink_id):
     """
     Récupère toutes les couleurs disponibles pour une pièce LEGO, à partir de son ID BrickLink.
 

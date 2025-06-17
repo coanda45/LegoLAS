@@ -106,6 +106,9 @@ if uploaded_file:
             styled_df = st.session_state.edited_df.style.apply(
                 style_color_column, axis=1)
 
+            if "lego_colors" not in st.session_state:
+                st.session_state.lego_colors = get_all_lego_colors()
+
             st.session_state.edited_df = st.data_editor(
                 styled_df,
                 column_config={
@@ -113,7 +116,7 @@ if uploaded_file:
                     "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
                     "img_url": st.column_config.ImageColumn("From URL"),
                     "img_base64": st.column_config.ImageColumn("From Base64"),
-                    "color": st.column_config.SelectboxColumn("Color", options=lego_colors["Name"].to_list()),
+                    "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
                     "detected_color_rgb": None
                 },
                 use_container_width=True,
