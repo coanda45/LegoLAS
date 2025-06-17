@@ -1,382 +1,126 @@
 import os
 import pandas as pd
-import gzip
-import re
 import datetime
+import re
 from urllib import request
+import gzip
 import shutil
+import ast
+from collections import defaultdict
+
 
 #Functions:
-
-
-def list_set_contenant_au_moins_une_des_pieces(
-    list_part_num: dict,
-    df_inventory_parts,
-    nombre_part_min_par_set: int = 5,
-):
+def purge(dir: str, pattern: str):
     '''
-    Sur la base d'un dictionnaire de part_num disponibles (list_part_num), la
-    fonction renvoie une dataframe avec l'ensemble des sets utilisant au moins
-    une pièce présente dans le dictionnaires des pièces fournies.
-    Un "vrai" correspondant à un set ayant au moins 5 part_num différents, ce
-    qui permet d'éviter d'afficher des sets contenant un seul type de pièce mais
-    dans des couleurs différentes. En gros un set "intéressant à construire".
-
-    INPUT:
-        list_part_num: dictionnaire au format :
-        list_part_num = [
-                            {
-                                'part_num': '2343',
-                                'quantity': 1,
-                                'color_id': 45
-                            },
-                            {...},...
-        ]
-        nombre_part_min_par_set : entier, par défaut égal à 5
-
-    OUTPUT :
-        une dataframe avec une ligne par set
-        colonnes =
-            inventory_id : l'id correspondant à la clé primaire
-            part_num_agg : aggrégation des part_nums sans tenir compte des
-                couleurs
-            count_nb_part_different	: le nombre de part_nums différents
-            quantity_total_part_num	 : le nombre total de pièces (sans spare),
-                hors figurines
-            part_num_qty_color : une liste contenant les dictionnaires avec
-                les part_num, les quantité et les color_id des pièces de
-                chaque set
-            set_num : le numéro LEGO du set correspondant à l'inventory_id
+    Efface tous les fichiers contenus dans le dossier dir s'il respect le pattern
     '''
-
-    liste_pieces = [elem['part_num'] for elem in list_part_num]
-
-    #on récupère uniquement les lignes des pièces du set et pas le spare
-    df_set_sans_spare = df_inventory_parts[df_inventory_parts['is_spare'] ==
-                                           False]
-    #on créé un pattern avec toutes les pièces pour filtrer le dataframe
-    pattern = '|'.join(liste_pieces)
-    mask = df_set_sans_spare['part_num'].str.contains(pattern).fillna(False)
-
-    #on récupère la dataframe
-    df = df_set_sans_spare[mask].copy()
-
-    #fonction pour aggreger les part num
-    f = lambda x: ','.join(sorted(list(set(x))))
-
-    #on créé une dataframe avec la concaténation des part_num
-    df_2 = df.groupby('inventory_id',
-                      as_index=False).agg(part_num_agg=('part_num', f))
-    #on créé une colonne avec la concaténation des part_num, qty et color dans
-    # une liste
-    df['part_num_qty_color']=[\
-        {'part_num': elem[0], 'quantity': elem[1], 'color_id': elem[2]} \
-        for elem in \
-            df[['part_num', 'quantity', 'color_id']].values.tolist()]
-
-    #on créé une dataframe avec un groupby des listes des différentes partnum
-    # (pour conserver la qté et la color)
-    df_concat_list = df.groupby(
-        'inventory_id', as_index=False)['part_num_qty_color'].apply(list)
-
-    #on group by inventory et part_num. Il peut y avoir plusieurs lignes
-    #pour un même part_num mais sous différentes couleurs. Ca fausse le count
-    #si on fait tout d'un coup
-    df_3 = df.groupby(['inventory_id', 'part_num'],
-                      as_index=False).agg(count_nb_part_different=('part_num',
-                                                                   'count'),
-                                          quantity_total_part_num=('quantity',
-                                                                   "sum"))
-
-    #on groupby la précédent df sur les inventaire pour avoir le bon
-    #count de num_part
-    df_4 = df_3.groupby('inventory_id', as_index=False).agg(
-        count_nb_part_different=('count_nb_part_different', 'count'),
-        #part_num_agg=('part_num', f),
-        quantity_total_part_num=('quantity_total_part_num', "sum"))
-
-    #on prend que des sets avec suffisamment de part différentes
-    df_final = pd.merge(df_2, df_4, how='inner', on='inventory_id')
-
-    df_final = pd.merge(df_final,
-                        df_concat_list,
-                        how='inner',
-                        on='inventory_id')
-
-    df_final = df_final[df_final['count_nb_part_different'] >=
-                        nombre_part_min_par_set]
-
-    #on merge avec inventories pour récupérer la colonne 'set_num'
-    df_final = pd.merge(df_final,
-                        df_inventories,
-                        how='left',
-                        left_on='inventory_id',
-                        right_on='id').drop(columns=['id', 'version'])
-
-    return df_final
+    for f in os.listdir(dir):
+        if re.search(pattern, f):
+            os.remove(os.path.join(dir, f))
 
 
-def pourcentage_piece_manquante(list_part_dispo, set_num_inventory_id,
-                                df_filtree):
+def download_csv_files() -> pd.DataFrame:
     '''
-    Fonction retournant les:
-        - le pourcentage de pièces disponibles si on ne tient pas compte
-        de la couleur
-        - la liste des pièces manquantes sans tenir compte de la couleur
-        - le pourcentage de pièces disponibles si on tient compte de la couleur
-        - la liste des pièces manquantes en tenant compte de la couleur
-        - la liste des pièces disponibles mais avec la mauvaise couleur
-        - les pièces extra inutiles pour chaque set.
-
-    INPUT :
-        list_part_dispo: dictionnaire au format :
-            list_part_dispo = [
-                                {
-                                    'part_num': '2343',
-                                    'quantity': 1,
-                                    'color_id': 45
-                                },
-                                {...},...
-            ]
-        set_num_inventory_id : le numéro du set testé
-        df_filtree : dataframe listant les sets utilisant au moins une des pièces
-        disponibles, résultat de la fonction :
-        list_set_contenant_au_moins_une_des_pieces
-
-    OUTPUT :
-        - le pourcentage de pièces disponibles si on ne tient pas compte
-        de la couleur
-        - la liste des pièces manquantes sans tenir compte de la couleur
-        - le pourcentage de pièces disponibles si on tient compte de la couleur
-        - la liste des pièces manquantes en tenant compte de la couleur
-        - la liste des pièces disponibles mais avec la mauvaise couleur,
-            dans le même format que
-        - les pièces extra inutiles pour chaque set.
+    Récupère les csv du jour s'il ne sont pas déjà présents dans le dossier
+    tmp. Si les fichiers présents sont ceux de jours passés, on les efface
+    et on les remplace par les gz du jour.
+    On les unzip et au final on créé les dataframe.
     '''
-    #initialisation
-    liste_piece_manquantes_without_color = []
-    liste_piece_manquantes_with_color = []
-    list_available_part_num_bad_color = []
-    extra_part_num = []
-    count_with_color = 0
-    count_without_color = 0
+    #récupération des csv
+    #url
+    inventories_path = 'https://cdn.rebrickable.com/media/downloads/inventories.csv.gz'
+    inventories_parts_path = 'https://cdn.rebrickable.com/media/downloads/inventory_parts.csv.gz'
+    sets_path = 'https://cdn.rebrickable.com/media/downloads/sets.csv.gz'
 
-    #Préparation set
-    #on filtre sur le numéro de set souhaité
-    df_set_num = df_filtree[df_filtree['inventory_id'] ==
-                            set_num_inventory_id].reset_index(drop=True)
-    #on récupère la liste totale des part_num, qté, color pour le set.
-    liste_infos_set = df_set_num.loc[0, 'part_num_qty_color'].copy()
-    #on trie par part_num puis color_id
-    liste_infos_set = sorted(liste_infos_set,
-                             key=lambda x: (x['part_num'], x['color_id']))
-    # on créé une liste avec toutes les parts_num nécessaire pour un set
-    # On n'a qu'une seule liste (1 seul set)
-    # ici on récupère la liste des partnum. Il peut y avoir des doublons si on a
-    # la même pièce mais dans différentes couleurs. C'est nécessaire pour la
-    # loop suivante
-    list_part_set = [elem['part_num'] for elem in liste_infos_set]
+    #date du jour
+    today = datetime.date.today()
+    today_f = datetime.datetime.strftime(today, '%y%m%d')
 
-    # Préparation pièce dispo
-    list_infos_part_dispo_fct = list_part_dispo.copy()
-    #on trie par part_num puis color_id
-    list_infos_part_dispo_fct = sorted(list_infos_part_dispo_fct,
-                                       key=lambda x:
-                                       (x['part_num'], x['color_id']))
-    liste_part_num_dispo = [
-        elem['part_num'] for elem in list_infos_part_dispo_fct
-    ]
+    #on récupère les noms des fichiers
+    inventories_name = re.split(pattern='/', string=inventories_path)[-1]
+    inventories_parts_name = re.split(pattern='/',
+                                      string=inventories_parts_path)[-1]
+    sets_path_name = re.split(pattern='/', string=sets_path)[-1]
 
-    #on boucle sur la liste des pièces nécessaires pour le set:
-    for num_part_set in list_part_set:
-        #si cette pièce est dans les pièces dispo
-        if num_part_set in liste_part_num_dispo:
-            # on boucle sur la liste de part_num_qty_color du set
-            for liste_num_part_set in liste_infos_set:
-                #si les num_part matchent, on récupère la quantité nécessaire
-                #et la couleur nécessaire pour le set, puis on sort de la boucle
-                if num_part_set == liste_num_part_set['part_num']:
-                    #on récupère l'index dans la liste pour la retirer ensuite
-                    #cela permet en cas de pièce avec plusieurs couleurs
-                    #de supprimer la liste déjà traitée pour passer à la
-                    #liste de la même pièce mais avec une autre couleur
-                    index = liste_infos_set.index(liste_num_part_set)
+    #ajout today date aux noms des ficheirs gz
+    inventories_dated_name = inventories_name[:-3] + "_" + today_f + '.gz'
+    inventories_parts_dated_name = inventories_parts_name[:
+                                                          -3] + "_" + today_f + '.gz'
+    sets_dated_name = sets_path_name[:-3] + "_" + today_f + '.gz'
 
-                    qty_num_part_set = liste_num_part_set['quantity']
-                    color_id_set = liste_num_part_set['color_id']
-                    #on retire l'élément traité
-                    liste_infos_set.pop(index)
-                    break
+    #liens de sauvegarde des gz renommés
+    tmp_dir = '/tmp'  #os.path.dirname(__file__) +
+    file_inventories_path = f'{tmp_dir}/{inventories_dated_name}'
+    file_inventories_parts_path = f'{tmp_dir}/{inventories_parts_dated_name}'
+    file_sets_path = f'{tmp_dir}/{sets_dated_name}'
 
-            # on filtre dans les pièces dispo pour rechercher la bonne part_num
-            # et récupérer la quantité et la couleur de la pièce dispo
-            for elem in list_infos_part_dispo_fct:
-                if elem['part_num'] == num_part_set:
-                    qty_num_part_dispo = elem['quantity']
-                    color_num_part_dispo = elem['color_id']
+    #si les fichier gz datés du jour existent déjà, on ne les retélécharge pas.
+    #sinon, on efface l'ancien gz et les csv unzippés.
+    if not os.path.isfile(file_inventories_path):
+        #s'il n'existe pas, on efface l'ancien fichier csv et gz
+        #s'il existe, on ne fait rien (on ne redl pas et on ne dezip pas)
+        dir = os.listdir(tmp_dir)
+        # Checking if the list is empty or not
+        if len(dir) > 0:
+            purge(tmp_dir, '/inventories.csv')
 
-                    #on récupère l'index de la partie des pièces dispo
-                    index = list_infos_part_dispo_fct.index({
-                        'part_num':
-                        num_part_set,
-                        'quantity':
-                        qty_num_part_dispo,
-                        'color_id':
-                        color_num_part_dispo
-                    })
+        r_inv = request.urlretrieve(url=inventories_path,
+                                    filename=file_inventories_path)
 
-                    # qty_num_part_set = liste_num_part_set['quantity']
-                    # color_id_set = liste_num_part_set['color_id']
+    if not os.path.isfile(file_inventories_parts_path):
+        #s'il n'existe pas on efface l'ancien fichier csv et gz
+        #s'il existe, on ne fait rien (on ne redl pas et on ne dezip pas)
+        dir = os.listdir(tmp_dir)
+        # Checking if the list is empty or not
+        if len(dir) > 0:
+            purge(tmp_dir, '/inventory_parts.csv')
+        r_inv_parts = request.urlretrieve(url=inventories_parts_path,
+                                          filename=file_inventories_parts_path)
 
-                    #on retire l'élément traité
-                    list_infos_part_dispo_fct.pop(index)
+    if not os.path.isfile(file_sets_path):
+        #s'il n'existe pas on efface l'ancien fichier csv et gz
+        #s'il existe, on ne fait rien (on ne redl pas et on ne dezip pas)
+        dir = os.listdir(tmp_dir)
+        # Checking if the list is empty or not
+        if len(dir) > 0:
+            purge(tmp_dir, '/sets.csv')
+        r_sets = request.urlretrieve(url=sets_path, filename=file_sets_path)
 
-                    break
+    #si le fichier n'existe pas , on le créé.
+    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    if not os.path.isfile(tmp_dir + '/' + inventories_name[:-3]):
+        with gzip.open(file_inventories_path, 'rb') as f_in:
+            with open(tmp_dir + '/' + inventories_name[:-3], 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
-            #on compare la valeur nécessaire dans le set à celle disponible
-            #dans le stock. Si la valeur disponible dans le stock est supérieure
-            #ou égale à celle nécessaire au set, on prend en compte le nb
-            #nécessaire au set pour éviter les pourcentage finaux > 100 %
-            if qty_num_part_dispo >= qty_num_part_set:
-                count_without_color += qty_num_part_set
-                if color_num_part_dispo == color_id_set:
-                    count_with_color += qty_num_part_set
-                    if qty_num_part_dispo > qty_num_part_set:
-                        extra_part_num.append({
-                            'part_num': num_part_set,
-                            'quantity': qty_num_part_dispo - qty_num_part_set,
-                            'color_id': color_num_part_dispo
-                        })
-                else:
-                    list_available_part_num_bad_color.append({
-                        'part_num':
-                        num_part_set,
-                        'quantity':
-                        qty_num_part_dispo,
-                        'color_id':
-                        color_num_part_dispo
-                    })
-                    liste_piece_manquantes_with_color.append({
-                        'part_num':
-                        num_part_set,
-                        'quantity':
-                        qty_num_part_set,
-                        'color_id':
-                        color_id_set
-                    })
-                    if qty_num_part_dispo > qty_num_part_set:
-                        extra_part_num.append({
-                            'part_num': num_part_set,
-                            'quantity': qty_num_part_dispo - qty_num_part_set,
-                            'color_id': color_num_part_dispo
-                        })
-            else:
-                count_without_color += qty_num_part_dispo
-                if color_num_part_dispo == color_id_set:
-                    count_with_color += qty_num_part_dispo
-                    liste_piece_manquantes_with_color.append({
-                        'part_num':
-                        num_part_set,
-                        'quantity':
-                        qty_num_part_set - qty_num_part_dispo,
-                        'color_id':
-                        color_id_set
-                    })
-                else:
-                    liste_piece_manquantes_with_color.append({
-                        'part_num':
-                        num_part_set,
-                        'quantity':
-                        qty_num_part_set,
-                        'color_id':
-                        color_id_set
-                    })
-                    list_available_part_num_bad_color.append({
-                        'part_num':
-                        num_part_set,
-                        'quantity':
-                        qty_num_part_dispo,
-                        'color_id':
-                        color_id_set
-                    })
-        #la pièce du set n'est pas dans les pièces dispo.
-        #Cette pièce du set est manquante
-        else:
-            #on récupère l'index de la liste contenant les dictonnaires des
-            #part_num nécessaire pour le set, pour lequel le part_num
-            #correspond à celui que l'on cherche
-            liste_part_num_set = df_set_num.loc[0, 'part_num_qty_color']
-            part_num_index = next(
-                (index for (index, d) in enumerate(liste_part_num_set)
-                 if d["part_num"] == num_part_set), None)
-            qty_set = liste_part_num_set[part_num_index]['quantity']
-            color_set = liste_part_num_set[part_num_index]['color_id']
-            liste_piece_manquantes_with_color.append({
-                'part_num': num_part_set,
-                'quantity': qty_set,
-                'color_id': color_set
-            })
-    if len(list_infos_part_dispo_fct) > 0:
-        extra_part_num.extend(list_infos_part_dispo_fct)
+    #si le fichier n'existe pas , on le créé.
+    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    if not os.path.isfile(tmp_dir + '/' + inventories_parts_name[:-3]):
+        with gzip.open(file_inventories_parts_path, 'rb') as f_in:
+            with open(tmp_dir + '/' + inventories_parts_name[:-3],
+                      'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
-    pourcentage_without_color = round(
-        count_without_color / df_set_num['quantity_total_part_num'][0] * 100,
-        2)
-    pourcentage_with_color = round(
-        count_with_color / df_set_num['quantity_total_part_num'][0] * 100, 2)
+    #si le fichier n'existe pas , on le créé.
+    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    if not os.path.isfile(tmp_dir + '/' + sets_path_name[:-3]):
+        with gzip.open(file_sets_path, 'rb') as f_in:
+            with open(tmp_dir + '/' + sets_path_name[:-3], 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
-    return pourcentage_without_color, liste_piece_manquantes_without_color,\
-        pourcentage_with_color, liste_piece_manquantes_with_color, \
-        list_available_part_num_bad_color, extra_part_num
+    #creations dataframes
+    df_inventories = pd.read_csv(tmp_dir + '/' + inventories_name[:-3])
+
+    df_inventory_parts = pd.read_csv(tmp_dir + '/' +
+                                     inventories_parts_name[:-3])
+
+    df_sets = pd.read_csv(tmp_dir + '/' + sets_path_name[:-3])
+
+    return df_inventories, df_inventory_parts, df_sets
 
 
-def ajout_pourcentage_df(liste_parts_disponibles, x, df):
-    '''
-    fonction appelée par generation_df_ac_pourcentage_pieces_manquantes pour
-    ajouter les pourcentages calculés par pourcentage_piece_manquante.
-    '''
-    return pourcentage_piece_manquante(liste_parts_disponibles, x, df)
-
-
-def generation_df_ac_pourcentage_pieces_manquantes(liste_parts_disponibles,
-                                                   df):
-    '''
-    Fonction modifiant la dataframe pour ajouter les pourcentages et les
-    listes des pièces manquantes ou en plus dans des nouvelles colonnes
-    INPUT :
-        liste_parts_disponibles: dictionnaire au format :
-        liste_parts_disponibles = [
-                            {
-                                'part_num': '2343',
-                                'quantity': 1,
-                                'color_id': 45
-                            },
-                            {...},...
-        ]
-        df: dataframe listant les sets utilisant au moins une des pièces
-        disponibles, résultat de la fonction :
-        list_set_contenant_au_moins_une_des_pieces
-    OUTPUT :
-        dataframe modifiée
-    '''
-    df['pourcentage_without_color'] = df['inventory_id'].apply(
-        lambda x: ajout_pourcentage_df(liste_parts_disponibles, x, df)[0])
-    df['missing_part_num_without_color'] = df['inventory_id'].apply(
-        lambda x: ajout_pourcentage_df(liste_parts_disponibles, x, df)[1])
-
-    df['pourcentage_with_color'] = df['inventory_id'].apply(
-        lambda x: ajout_pourcentage_df(liste_parts_disponibles, x, df)[2])
-    df['missing_part_num_with_color'] = df['inventory_id'].apply(
-        lambda x: ajout_pourcentage_df(liste_parts_disponibles, x, df)[3])
-
-    df['available_part_num_bad_color'] = df['inventory_id'].apply(
-        lambda x: ajout_pourcentage_df(liste_parts_disponibles, x, df)[4])
-    df['extra_part'] = df['inventory_id'].apply(
-        lambda x: ajout_pourcentage_df(liste_parts_disponibles, x, df)[5])
-    return df
-
-
-def generate_test_liste_part_disponible():
+# A effacer après intégration dans le workflow
+def generate_test_liste_part_disponible() -> list:
     '''
     A remplacer par la liste récupérée après l'API de Cassille
     '''
@@ -506,123 +250,391 @@ def generate_test_liste_part_disponible():
     return liste_parts_disponibles
 
 
-def purge(dir, pattern):
+def list_set_contenant_au_moins_une_des_pieces(list_part_num: dict,
+                                               nombre_part_min_par_set: int = 5
+                                               ) -> pd.DataFrame:
     '''
-    Efface les fichiers du dossier dir respectant le pattern
+    Sur la base d'un dictionnaire de part_num disponibles (list_part_num), la
+    fonction renvoie une dataframe avec l'ensemble des sets utilisant au moins
+    une pièce présente dans le dictionnaires des pièces fournies.
+    Un "vrai" correspondant à un set ayant au moins 5 part_num différents, ce
+    qui permet d'éviter d'afficher des sets contenant un seul type de pièce mais
+    dans des couleurs différentes. En gros un set "intéressant à construire".
+
+    INPUT:
+        list_part_num: dictionnaire au format :
+        list_part_num = [
+                            {
+                                'part_num': '2343',
+                                'quantity': 1,
+                                'color_id': 45
+                            },
+                            {...},...
+        ]
+        nombre_part_min_par_set : entier, par défaut égal à 5
+
+    OUTPUT :
+        une dataframe avec une ligne par set
+        colonnes =
+            inventory_id : l'id correspondant à la clé primaire
+            part_num_agg : aggrégation des part_nums sans tenir compte des
+                couleurs
+            count_nb_part_different	: le nombre de part_nums différents
+            quantity_total_part_num	 : le nombre total de pièces (sans spare),
+                hors figurines
+            part_num_qty_color : une liste contenant les dictionnaires avec
+                les part_num, les quantité et les color_id des pièces de
+                chaque set
+            set_num : le numéro LEGO du set correspondant à l'inventory_id
     '''
-    for f in os.listdir(dir):
-        if re.search(pattern, f):
-            os.remove(os.path.join(dir, f))
+
+    liste_pieces = [elem['part_num'] for elem in list_part_num]
+
+    #on récupère uniquement les lignes des pièces du set et pas le spare
+    df_set_sans_spare = df_inventory_parts[df_inventory_parts['is_spare'] ==
+                                           False].copy().reset_index(drop=True)
+    #on créé un pattern avec toutes les pièces pour filtrer le dataframe
+    pattern = '|'.join(liste_pieces)
+    mask = df_set_sans_spare['part_num'].str.contains(pattern).fillna(False)
+
+    #on récupère la dataframe
+    df = df_set_sans_spare[mask].copy().reset_index(drop=True)
+
+    #on récupère la liste des inventory_id uniques
+    liste_inventory_id_cites_unique = df['inventory_id'].unique()
+
+    #on récupère l'ensemble des lignes du dataframe initial pour lequel
+    #le inventory id est dans la liste des set possible.
+    df_filtree_set_pertinents = df_set_sans_spare[df_set_sans_spare[
+        'inventory_id'].isin(liste_inventory_id_cites_unique)].copy()
+
+    #fonction pour aggreger les part num
+    f = lambda x: ','.join(sorted(list(set(x))))
+
+    #on créé une dataframe avec la concaténation des part_num
+    df_2 = df_filtree_set_pertinents.groupby(
+        'inventory_id', as_index=False).agg(part_num_agg=('part_num', f))
+    #on créé une colonne avec la concaténation des part_num, qty et color dans une liste
+    # df['part_num_qty_color']=df[['part_num', 'quantity', 'color_id']].values.tolist()
+    # print(df_2)
+
+    df_filtree_set_pertinents['part_num_qty_color']=[\
+        {'part_num': elem[0], 'quantity': elem[1], 'color_id': elem[2]} \
+        for elem in \
+            df_filtree_set_pertinents[['part_num', 'quantity', 'color_id']].values.tolist()]
+
+    # print(df)
+    #on créé une dataframe avec un groupby des listes des différentes partnum (pour conserver la qté et la color)
+    df_concat_list = df_filtree_set_pertinents.groupby(
+        'inventory_id', as_index=False)['part_num_qty_color'].apply(list)
+    # print(df_concat_list)
+
+    #on group by inventory et part_num. Il peut y avoir plusieurs lignes
+    #pour un même part_num mais sous différentes couleurs. Ca fausse le count
+    #si on fait tout d'un coup
+    df_3 = df_filtree_set_pertinents.groupby(
+        ['inventory_id', 'part_num'],
+        as_index=False).agg(count_nb_part_different=('part_num', 'count'),
+                            quantity_total_part_num=('quantity', "sum"))
+    # print(df_3)
+    #on groupby la précédent df sur les inventaire pour avoir le bon
+    #count de num_part
+    df_4 = df_3.groupby('inventory_id', as_index=False).agg(
+        count_nb_part_different=('count_nb_part_different', 'count'),
+        #part_num_agg=('part_num', f),
+        quantity_total_part_num=('quantity_total_part_num', "sum"))
+    # print(df_4)
+    #on prend que des sets avec suffisamment de part différentes
+    df_final = pd.merge(df_2, df_4, how='inner', on='inventory_id')
+    df_final = pd.merge(df_final,
+                        df_concat_list,
+                        how='inner',
+                        on='inventory_id')
+    df_final = df_final[df_final['count_nb_part_different'] >=
+                        nombre_part_min_par_set]
+    df_final = pd.merge(df_final,
+                        df_inventories,
+                        how='left',
+                        left_on='inventory_id',
+                        right_on='id').drop(columns=['id', 'version'])
+    return df_final
 
 
-def download_csv_files():
-    #url
-    inventories_path = 'https://cdn.rebrickable.com/media/downloads/inventories.csv.gz'
-    inventories_parts_path = 'https://cdn.rebrickable.com/media/downloads/inventory_parts.csv.gz'
-    sets_path = 'https://cdn.rebrickable.com/media/downloads/sets.csv.gz'
+def available_part_num_dict(liste_part_dispo: dict) -> dict:
+    '''
+    Function créant des dictionnaires avec les pièces disponibles, que l'on tienne compte ou non des couleurs
 
-    #date
-    today = datetime.date.today()
-    today_f = datetime.datetime.strftime(today, '%y%m%d')
+    INPUT :
+        liste des part_num disponibles : liste de dictionnaire au format:
+            liste_parts_disponibles = [
+        {
+            'part_num': '2343',
+            'quantity': 1,
+            'color_id': 45
+        },
+        ...
+        {}
+        ]
 
-    #filenames
-    inventories_name = re.split(pattern='/', string=inventories_path)[-1]
-    inventories_parts_name = re.split(pattern='/',
-                                      string=inventories_parts_path)[-1]
-    sets_path_name = re.split(pattern='/', string=sets_path)[-1]
+    OUTPUT :
+        available_qty : dictionnaire au format:
+            {
+            (partnum, color_id) : quantity,
+            (partnum, color_id) : quantity,
+            ....
+            }
+        available_qty_no_color : dictionnaire au format:
+            {
+            partnum : quantity,
+            partnum : quantity,
+            ....
+            }
+    '''
+    available_qty = defaultdict(int)
+    for item in liste_part_dispo:
+        key = (item['part_num'], item['color_id'])
+        available_qty[key] += item['quantity']
 
-    #ajout today date
-    inventories_dated_name = inventories_name[:-3] + "_" + today_f + '.gz'
-    inventories_parts_dated_name = inventories_parts_name[:
-                                                          -3] + "_" + today_f + '.gz'
-    sets_dated_name = sets_path_name[:-3] + "_" + today_f + '.gz'
+    available_qty_no_color = defaultdict(int)
+    for item in liste_part_dispo:
+        key = item['part_num']
+        available_qty_no_color[key] += item['quantity']
 
-    #liens de sauvegarde
-    folder_inventories_path = os.path.dirname(
-        __file__) + '/' + f'tmp/{inventories_dated_name}'
-    folder_inventories_parts_path = os.path.dirname(
-        __file__) + '/' + f'tmp/{inventories_parts_dated_name}'
-    folder_sets_path = os.path.dirname(
-        __file__) + '/' + f'tmp/{sets_dated_name}'
+    return available_qty, available_qty_no_color
 
-    tmp_dir = os.path.dirname(__file__) + '/tmp/'
 
-    #si les fichier gz datés existent déjà, on ne les retélécharge pas.
-    #sinon, on efface l'ancien gz et les csv unzippés.
-    if not os.path.isfile(folder_inventories_path):
-        #s'il n'existe pas on efface l'ancien fichier csv et gz
-        #s'il existe, on ne fait rien (on ne dl pas et on ne dezip pas)
-        dir = os.listdir(tmp_dir)
-        # Checking if the list is empty or not
-        if len(dir) > 0:
-            purge(tmp_dir, 'inventories.csv')
+def compute_colour_match(row, available_qty: dict,
+                         available_qty_no_color: dict) -> pd.Series:
+    '''
+    Fonction générant une nouvelle Pandas Series pour chaque row passée à
+    la fonction.
 
-        r_inv = request.urlretrieve(url=inventories_path,
-                                    filename=folder_inventories_path)
+    INPUT :
+        La ligne à utiliser, et les dictionnaires des pièces disponibles si on
+        tient compte ou non des couleurs.
 
-    if not os.path.isfile(folder_inventories_parts_path):
-        #s'il n'existe pas on efface l'ancien fichier csv et gz
-        #s'il existe, on ne fait rien (on ne dl pas et on ne dezip pas)
-        dir = os.listdir(tmp_dir)
-        # Checking if the list is empty or not
-        if len(dir) > 0:
-            purge(tmp_dir, 'inventory_parts.csv')
-        r_inv_parts = request.urlretrieve(
-            url=inventories_parts_path, filename=folder_inventories_parts_path)
+    OUTPUT :
+        une Pandas Series avec 7 colonnes:
+            'percent_no_colour'
+            'missing_without_color'
+            'extra_part_without_color'
+            'percent_colour_match'
+            'exact_available_parts'
+            'missing_exact_parts'
+            'extra part with color'
+    '''
+    # Parse JSON‑like string safely
+    # 'part_num_qty_color'  liste de dictionnaires avec toutes les infos sur
+    # les pièces nécessaire pour faire un set.
+    #[{'part_num': '48379c04', 'quantity': 1, 'color_id' : 15},{...}...
+    required_list = ast.literal_eval(str(row['part_num_qty_color']))
+    required_part_num_no_color = []
 
-    if not os.path.isfile(folder_sets_path):
-        #s'il n'existe pas on efface l'ancien fichier csv et gz
-        #s'il existe, on ne fait rien (on ne dl pas et on ne dezip pas)
-        dir = os.listdir(tmp_dir)
-        # Checking if the list is empty or not
-        if len(dir) > 0:
-            purge(tmp_dir, 'sets.csv')
-        r_sets = request.urlretrieve(url=sets_path, filename=folder_sets_path)
+    # Aggregate requirements by (part_num, color_id)
+    req_qty_color = defaultdict(int)
+    for rec in required_list:
+        key = (rec['part_num'], rec['color_id'])
+        required_part_num_no_color.append(key[0])
+        req_qty_color[key] += rec['quantity']
+    #nombre de pièces totales nécessaire pour faire le set
+    total_req = sum(req_qty_color.values())
 
-        inventories_name = re.split(pattern='/', string=inventories_path)[-1]
-        inventories_parts_name = re.split(pattern='/',
-                                          string=inventories_parts_path)[-1]
-        sets_path_name = re.split(pattern='/', string=sets_path)[-1]
+    #initialisation des variables et listes nécessaire
+    matched_total_color = 0
+    matched_total_without_color = 0
+    missing_without_color = []
+    exact_available = []
+    missing_exact = []
+    extra_part_no_color = []
+    extra_part_with_color = []
 
-    #si le fichier n'existe pas , on le créé.
-    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
-    if not os.path.isfile(tmp_dir + inventories_name[:-3]):
-        with gzip.open(folder_inventories_path, 'rb') as f_in:
-            with open(tmp_dir + inventories_name[:-3], 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
+    #on tient compte des couleurs
+    available_qty_copy = available_qty.copy()
+    for key, req_q in req_qty_color.items():
+        #on regarde si la pièce et la couleur sont bonnes
+        #on récupère la quantité disponible ou zéro
+        avail_q = available_qty.get(key, 0)
+        #Si on a moins ou pas d epièce nécessaire, on récupère cette valeur
+        #sinon on récupère la valeur requise.
+        matched_q = min(avail_q, req_q)
+        #On ajoute la valeur aux pièces totales
+        matched_total_color += matched_q
 
-    #si le fichier n'existe pas , on le créé.
-    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
-    if not os.path.isfile(tmp_dir + inventories_parts_name[:-3]):
-        with gzip.open(folder_inventories_parts_path, 'rb') as f_in:
-            with open(tmp_dir + inventories_parts_name[:-3], 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
+        if matched_q:
+            exact_available.append({
+                'part_num': key[0],
+                'color_id': key[1],
+                'qty_match': matched_q,
+            })
+        if matched_q < req_q:
+            missing_exact.append({
+                'part_num': key[0],
+                'color_id': key[1],
+                'qty_missing': req_q - matched_q,
+            })
 
-    #si le fichier n'existe pas , on le créé.
-    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
-    if not os.path.isfile(tmp_dir + sets_path_name[:-3]):
-        with gzip.open(folder_sets_path, 'rb') as f_in:
-            with open(tmp_dir + sets_path_name[:-3], 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
+        #on a utilisé cette key. On la supprime pour ne conserver que les extra part num
+        if key in available_qty_copy:
+            available_qty_copy.pop(key)
 
-    #creations dataframes
-    df_inventories = pd.read_csv(tmp_dir + inventories_name[:-3])
+    #s'il reste des pièces dans available_qty_copy, alors ce sont des pièces en trop.
+    if available_qty_copy is not None:
+        for key, req_q in available_qty_copy.items():
+            # si le partnum n'est pas dans les pièces nécessaire, alors cette pièce
+            # est inutile dans le set que l'on tienne compte ou non des couleurs
+            # on l'ajoute donc dans les 2 extra_part list
+            if key[0] not in required_part_num_no_color:
+                extra_part_with_color.append({
+                    'part_num': key[0],
+                    'color_id': key[1],
+                    'extra_qty': req_q,
+                })
+                extra_part_no_color.append({
+                    'part_num': key[0],
+                    'color_id': key[1],
+                    'extra_qty': req_q,
+                })
+            # sinon, la pièce est nécessaire au set mais elle n'est pas de la bonne couleur
+            # c'est donc une extra_part si on tient compte des couleurs.
+            else:
+                extra_part_with_color.append({
+                    'part_num': key[0],
+                    'color_id': key[1],
+                    'extra_qty': req_q,
+                })
 
-    df_inventory_parts = pd.read_csv(tmp_dir + inventories_parts_name[:-3])
+    #on regarde sans tenir compte des couleurs:
+    # Aggregate requirements by part_num
+    req_qty_no_color = defaultdict(int)
+    for rec in required_list:
+        key = rec['part_num']
+        req_qty_no_color[key] += rec['quantity']
 
-    df_sets = pd.read_csv(tmp_dir + sets_path_name[:-3])
+    for key_no_color, req_q_no_color in req_qty_no_color.items():
+        avail_q_no_color = available_qty_no_color.get(key_no_color, 0)
+        #Si on a moins ou pas de pièce nécessaire, on récupère cette valeur
+        #sinon on récupère la valeur requise.
+        matched_q_no_color = min(avail_q_no_color, req_q_no_color)
+        #On ajoute la valeur aux pièces totales
+        matched_total_without_color += matched_q_no_color
 
-    return df_inventories, df_inventory_parts, df_sets
+        if not matched_q_no_color:
+            missing_without_color.append({
+                'part_num': key_no_color,
+                'qty_missing': req_q_no_color,
+            })
+        if matched_q_no_color < req_q_no_color:
+            missing_without_color.append({
+                'part_num':
+                key_no_color,
+                'qty_missing':
+                req_q_no_color - matched_q_no_color,
+            })
+    #ici pas besoin de regarder les extra part, on l'a déjà fait avant.
+
+    percent_exact_without_color = round(
+        matched_total_without_color / total_req * 100, 2) if total_req else 0
+
+    percent_exact_color = round(matched_total_color / total_req *
+                                100, 2) if total_req else 0
+
+    return pd.Series({
+        'percent_no_colour': percent_exact_without_color,
+        'missing_without_color': missing_without_color,
+        'extra_part_without_color': extra_part_no_color,
+        'percent_colour_match': percent_exact_color,
+        'exact_available_parts': exact_available,
+        'missing_exact_parts': missing_exact,
+        'extra part with color': extra_part_with_color,
+    })
+
+
+def generate_final_df(sets_df: pd.DataFrame, available_qty: dict,
+                      available_qty_no_color: dict, df_sets) -> pd.DataFrame:
+    '''
+    Fonction générant les résultats finaux:
+    On récupère les 10 sets les plus faisables, que l'on tienne compte ou
+    non des couleurs, triés par pourcentage de pièces disponibles.
+    On récupère aussi le lien vers la photo des sets.
+
+    INPUT :
+        - sets_df = la dataframe générée contenant l'ensemble des sets utilisant au moins
+        une pièce parmi la liste des pièes disponibles.
+        - les dictionnaires des pièces disponibles si on
+        tient compte ou non des couleurs.
+        - df_sets : dataframe reliant les numéro de set aux photos hébergées sur
+        le site de rebrickable
+
+    OUTPUT :
+        - les 10 sets les plus faisables si on tient compte des couleurs
+        - les 10 set les plus faisables si on ne tient pas compte des couleurs
+
+    '''
+    #génération de la dataframe globale
+    colour_metrics = sets_df.apply(lambda x: compute_colour_match(
+        x, available_qty, available_qty_no_color),
+                                   axis=1)
+    df_total = pd.concat([sets_df, colour_metrics], axis=1)
+
+    #génération des dataframes des 10 sets les plus faisables si on tient compte des couleurs ou non
+    df_no_color = df_total[[
+        'inventory_id', 'set_num', 'percent_no_colour',
+        'missing_without_color', 'extra_part_without_color'
+    ]].copy().sort_values(ascending=False, by='percent_no_colour').head(10)
+    df_color = df_total[[
+        'inventory_id', 'set_num', 'percent_colour_match',
+        'missing_exact_parts', 'extra part with color'
+    ]].copy().sort_values(ascending=False, by='percent_colour_match').head(10)
+
+    #Transformation des dataframes obtenus pour ne conserver que des lists au
+    #lieu des dict
+    df_no_color_final = df_no_color.copy()
+    df_no_color_final['missing_without_color'] = df_no_color_final[
+        'missing_without_color'].apply(
+            lambda x: [[elem['part_num'], elem['qty_missing']]
+                       if len(elem) > 0 else [] for elem in x])
+    df_no_color_final['extra_part_without_color'] = df_no_color_final[
+        'extra_part_without_color'].apply(
+            lambda x: [[elem['part_num'], elem['extra_qty']]
+                       if len(elem) > 0 else [] for elem in x])
+    df_no_color_final.reset_index(drop=True, inplace=True)
+
+    df_color_final = df_color.copy()
+    df_color_final['missing_exact_parts'] = df_color[
+        'missing_exact_parts'].apply(lambda x: [[
+            elem['part_num'], elem['color_id'], elem['qty_missing']
+        ] if len(elem) > 0 else [] for elem in x])
+    df_color_final['extra part with color'] = df_color_final[
+        'extra part with color'].apply(
+            lambda x: [[elem['part_num'], elem['color_id'], elem['extra_qty']]
+                       if len(elem) > 0 else [] for elem in x])
+    df_color_final.reset_index(drop=True, inplace=True)
+
+    # ajout des liens vers l'image des sets
+    df_no_color_final_lien = pd.merge(
+        df_no_color_final, df_sets, how='left',
+        on='set_num').drop(columns=['name', 'year', 'theme_id', 'num_parts'])
+    df_color_final_lien = pd.merge(
+        df_color_final, df_sets, how='left',
+        on='set_num').drop(columns=['name', 'year', 'theme_id', 'num_parts'])
+
+    return df_no_color_final_lien, df_color_final_lien
 
 
 if __name__ == "__main__":
+    #Récupération des csv et génération des dataframes
     df_inventories, df_inventory_parts, df_sets = download_csv_files()
-
+    #A modifier avec le buffer.
     liste_part_dispo = generate_test_liste_part_disponible()
+    #génération de la dataframe avec tous les sets utilisant au moins 1 part_num
+    # de la liste des pièces dispo
+    sets_df = list_set_contenant_au_moins_une_des_pieces(liste_part_dispo)
+    #creation des dict des pièces disponibles
+    available_qty, available_qty_no_color = available_part_num_dict(
+        liste_part_dispo)
+    #génération de la dataframe avec les pourcentages
+    df_no_color_final, df_color_final = generate_final_df(
+        sets_df, available_qty, available_qty_no_color, df_sets)
 
-    df = generation_df_ac_pourcentage_pieces_manquantes(
-        liste_part_dispo,
-        list_set_contenant_au_moins_une_des_pieces(
-            liste_part_dispo, df_inventory_parts)).reset_index(drop=True)
-
-    print(df)
+    print(df_no_color_final)
+    print(df_color_final)
