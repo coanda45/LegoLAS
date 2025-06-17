@@ -86,35 +86,46 @@ def download_csv_files() -> pd.DataFrame:
             purge(tmp_dir, '/sets.csv')
         r_sets = request.urlretrieve(url=sets_path, filename=file_sets_path)
 
-    #si le fichier n'existe pas , on le créé.
-    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
-    if not os.path.isfile(tmp_dir + '/' + inventories_name[:-3]):
-        with gzip.open(file_inventories_path, 'rb') as f_in:
-            with open(tmp_dir + '/' + inventories_name[:-3], 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
+    # #si le fichier n'existe pas , on le créé.
+    # #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    # if not os.path.isfile(tmp_dir + '/' + inventories_name[:-3]):
+    #     with gzip.open(file_inventories_path, 'rb') as f_in:
+    #         with open(tmp_dir + '/' + inventories_name[:-3], 'wb') as f_out:
+    #             shutil.copyfileobj(f_in, f_out)
 
-    #si le fichier n'existe pas , on le créé.
-    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
-    if not os.path.isfile(tmp_dir + '/' + inventories_parts_name[:-3]):
-        with gzip.open(file_inventories_parts_path, 'rb') as f_in:
-            with open(tmp_dir + '/' + inventories_parts_name[:-3],
-                      'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
+    # #si le fichier n'existe pas , on le créé.
+    # #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    # if not os.path.isfile(tmp_dir + '/' + inventories_parts_name[:-3]):
+    #     with gzip.open(file_inventories_parts_path, 'rb') as f_in:
+    #         with open(tmp_dir + '/' + inventories_parts_name[:-3],
+    #                   'wb') as f_out:
+    #             shutil.copyfileobj(f_in, f_out)
 
-    #si le fichier n'existe pas , on le créé.
-    #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
-    if not os.path.isfile(tmp_dir + '/' + sets_path_name[:-3]):
-        with gzip.open(file_sets_path, 'rb') as f_in:
-            with open(tmp_dir + '/' + sets_path_name[:-3], 'wb') as f_out:
-                shutil.copyfileobj(f_in, f_out)
+    # #si le fichier n'existe pas , on le créé.
+    # #Il a été effacé à l'étape précédente si on a retéléchargé un nv gzip
+    # if not os.path.isfile(tmp_dir + '/' + sets_path_name[:-3]):
+    #     with gzip.open(file_sets_path, 'rb') as f_in:
+    #         with open(tmp_dir + '/' + sets_path_name[:-3], 'wb') as f_out:
+    #             shutil.copyfileobj(f_in, f_out)
 
     #creations dataframes
-    df_inventories = pd.read_csv(tmp_dir + '/' + inventories_name[:-3])
+    df_inventories = pd.read_csv(file_inventories_path,
+                                 compression='gzip',
+                                 header=0,
+                                 sep=',',
+                                 on_bad_lines='skip')
 
-    df_inventory_parts = pd.read_csv(tmp_dir + '/' +
-                                     inventories_parts_name[:-3])
+    df_inventory_parts = pd.read_csv(file_inventories_parts_path,
+                                     compression='gzip',
+                                     header=0,
+                                     sep=',',
+                                     on_bad_lines='skip')
 
-    df_sets = pd.read_csv(tmp_dir + '/' + sets_path_name[:-3])
+    df_sets = pd.read_csv(file_sets_path,
+                          compression='gzip',
+                          header=0,
+                          sep=',',
+                          on_bad_lines='skip')
 
     return df_inventories, df_inventory_parts, df_sets
 
