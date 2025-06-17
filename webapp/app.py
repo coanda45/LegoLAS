@@ -9,10 +9,7 @@ import json
 
 from scripts.utils import resize_image
 from legolas.segmentation.constants import RESIZE_VALUES
-
-lego_colors = pd.read_csv("./webapp/Lego_Colors.csv",
-                          delimiter=';',
-                          encoding='utf-8')
+from scripts.lego_colors import get_all_lego_colors
 
 st.set_page_config(layout="wide")
 
@@ -20,7 +17,6 @@ st.title("Please upload an image with your LEGO parts:")
 uploaded_file = st.file_uploader("Choose a file",
                                  type=["png", "jpg", "jpeg", "bmp", "gif"])
 
-# Wait for user to upload an image
 if uploaded_file:
     try:
         image = Image.open(uploaded_file)
@@ -107,9 +103,6 @@ if uploaded_file:
             # def color_bg(val):
             #     return f'background-color: {val}'
 
-            # styled_df = st.session_state.edited_df.style.map(
-            #     color_bg, subset=["detected_color_rgb"])
-            # Appliquer le style ligne par ligne
             styled_df = st.session_state.edited_df.style.apply(
                 style_color_column, axis=1)
 
