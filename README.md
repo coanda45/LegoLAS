@@ -1,5 +1,5 @@
 # 🏗️ LEGOLAS
-LegoLAS (LEGO: Locate And Sum) est un projet permettant aux utilisateurs d'identifier des pièces LEGO à partir d'une photo et d'obtenir la liste des sets réalisables avec ces pièces. Il aide également à déterminer les pièces manquantes
+LegoLAS (LEGO: Locate And Sum) est un projet permettant aux utilisateurs d'identifier des pièces LEGO à partir d'une photo et d'obtenir la liste des sets réalisables avec ces pièces. Il aide également à déterminer les pièces manquantes.
 
 
 ## 🎯 Objectif du projet
@@ -7,16 +7,21 @@ LegoLAS (LEGO: Locate And Sum) est un projet permettant aux utilisateurs d'ident
 LegoLAS repose sur des techniques avancées de reconnaissance d'image et d'analyse des bases de données pour :
 
 - 📸 Analyser une photo des pièces LEGO prises par l'utilisateur:
-    - ✂️ Segmenter l'image avec le modèle Segment Anything Model (SAM) pour séparer chaque pièce
-    - 🔍 Classifier les pièces via l’API Brickognize.
-- 🏗️ Rechercher les sets compatibles pouvant être construits avec ces pièces.
-- 🧩 Lister les pièces manquantes nécessaires pour compléter un set.
+    - ✂️ Segmenter l'image (c'est-à-dire identifier les zones de l'image présentant une pièce LEGO) à l'aide de trois modèles proposés, à choisir par l'utilisateur.
+    - 🔍 Classifier les pièces via l’API Brickognize (c'est-à-dire identifier les pièces LEGO et leur couleur correspondantes).
+- 🏗️ Rechercher les sets compatibles pouvant être construits avec toutes ou partie de ces pièces. Les 10 sets présentant le pourcentage de pièces disponibles sont présentés, que l'on tienne compte (ou non) des couleurs des pièces disponibles.
+- 🧩 Lister les pièces manquantes nécessaires pour compléter un set ainsi que les pièces en trop.
 
 
 ## 🚀 Fonctionnalités
 
   ### ✂️ Segmentation d’image
-  LegoLAS intègre Segment Anything Model (SAM) pour une segmentation précise des pièces LEGO :
+  LegoLAS intègre trois modèles à choisir par l'utilisateur pour une segmentation précise des pièces LEGO :
+
+  un modèle "rapide" mais susceptible de ne pas reconnaître l'ensemble des pièces (utilisant le modèle disponible à l'adresse suivante : https://universe.roboflow.com/test-lego-brick-annotatie/lego_object_detection-5lfzr/) : de l'ordre de quelques secondes à dizaines de secondes selon le nombre de pièces sur la photo ;
+  un modèle un peu moins "rapide" mais susceptible de reconnaître davantage des pièces (utilisant le modèle disponible à l'adresse suivante : https://universe.roboflow.com/vcomtask3/lego-brick-detector-xvqkq) : de l'ordre de quelques dizaines de secondes selon le nombre de pièces sur la photo ;
+  un modèle "lent' mais qui devrait laisser pas ou peu de pièces non segmentées (utilisant le modèle Segment Anything développé par Meta : https://segment-anything.com/) : de l'ordre de la dizaine de secondes à la minutes selon le nombre de pièces sur la photo."
+  Ces trois modèles permettent :
   - Détection des contours et formes des pièces LEGO.
   - Séparation des pièces superposées ou partiellement visibles.
   - Extraction individuelle des éléments pour une meilleure classification.
