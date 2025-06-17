@@ -21,7 +21,7 @@ def load_SAM():
     https://github.com/facebookresearch/segment-anything?tab=readme-ov-file#model-checkpoints
     """
     print("initializing SAM model...")
-    weights_path = "/tmp/sam_vit_b_01ec64.pth"  # trained weights
+    weights_path = "models/sam_vit_b_01ec64.pth"  # trained weights
     if not Path(weights_path).is_file():
         print("  downloading SAM weights...", end="", flush=True)
         try:
@@ -39,7 +39,7 @@ def load_SAM():
             print(e)
             print("  /!\ Cound not download SAM weights. You need to download the Vit-B SAM model checkpoint here:\n" \
             + "  https://github.com/facebookresearch/segment-anything?tab=readme-ov-file#model-checkpoints\n" \
-            + "  and store sam_vit_b_01ec64.pth in /tmp/")
+            + "  and store sam_vit_b_01ec64.pth in models/")
             return None
     else:
         print(f"  SAM weights found here: {weights_path}")

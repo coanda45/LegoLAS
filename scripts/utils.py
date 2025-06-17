@@ -1,6 +1,6 @@
 from PIL import Image
 
-from models.constants import SAM_TEST_MASKS_08  # tmp for demo day
+from legolas.segmentation.constants import SAM_TEST_MASKS_08  # tmp for demo day
 
 def resize_image(image, max_size=(1024,512)):
     """

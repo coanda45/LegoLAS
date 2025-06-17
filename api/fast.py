@@ -22,16 +22,12 @@ import cv2
 
 from legolas.segmentation.registry import load_model_RF, load_SAM
 from legolas.classification.main import classify_part
-from models.constants import RESIZE_VALUES, SAM_CONFIG_1, IMG_08_SIZE
+from legolas.segmentation.constants import RESIZE_VALUES, SAM_CONFIG_1, IMG_08_SIZE, ROBOFLOW_PROJECT_ID_LOD, ROBOFLOW_PROJECT_VERSION_LOD, ROBOFLOW_PROJECT_ID_LBD, ROBOFLOW_PROJECT_VERSION_LBD
 from scripts.utils import resize_SAM_masks
 
 load_dotenv(dotenv_path="../.env", override=True)
 
 ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
-ROBOFLOW_PROJECT_ID_LOD = os.getenv("ROBOFLOW_PROJECT_ID_LOD")
-ROBOFLOW_PROJECT_VERSION_LOD = os.getenv("ROBOFLOW_PROJECT_VERSION_LOD")
-ROBOFLOW_PROJECT_ID_LBD = os.getenv("ROBOFLOW_PROJECT_ID_LBD")
-ROBOFLOW_PROJECT_VERSION_LBD = os.getenv("ROBOFLOW_PROJECT_VERSION_LBD")
 # BRICKOGNIZE_URL = os.getenv("BRICKOGNIZE_URL")
 
 
@@ -108,7 +104,8 @@ def post_predict(data: PostPredictData):
         # image_arr = cv2.cvtColor(image_arr, cv2.COLOR_BGR2RGB)
         # mask_generator = SamAutomaticMaskGenerator(model=model, **SAM_CONFIG_1)
         # preds = mask_generator.generate(image_arr)  # masks are renamed "preds" for consistency with RF
-        shrink_factor = max(IMG_08_SIZE[0]/RESIZE_VALUES[0], IMG_08_SIZE[1]/RESIZE_VALUES[1])
+        shrink_factor = max(IMG_08_SIZE[0] / RESIZE_VALUES[0],
+                            IMG_08_SIZE[1] / RESIZE_VALUES[1])
         preds = resize_SAM_masks(shrink_factor)
         ### TMP END ###
 

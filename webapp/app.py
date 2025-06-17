@@ -8,11 +8,11 @@ import traceback
 import json
 
 from scripts.utils import resize_image
-from models.constants import RESIZE_VALUES
-
+from legolas.segmentation.constants import RESIZE_VALUES
 
 lego_colors = pd.read_csv("./webapp/Lego_Colors.csv",
-                          delimiter=';', encoding='utf-8')
+                          delimiter=';',
+                          encoding='utf-8')
 
 st.set_page_config(layout="wide")
 
@@ -40,10 +40,12 @@ if uploaded_file:
             model_options = {
                 "-": None,
                 "Quick and dirty": "LOD",
-                "Quick and not-so-dirty": "LBD",
+                "Quick and not so dirty": "LBD",
                 "Slow but comprehensive (hopefully)": "SAM"
             }
-            selected_label = st.selectbox("Choose a model for part detection:", list(model_options.keys()))
+            selected_label = st.selectbox("Choose a model for part detection:",
+                                          list(model_options.keys()),
+                                          accept_new_options=False)
             model_name = model_options[selected_label]
             is_model_chosen = model_name is not None
 
@@ -58,10 +60,14 @@ if uploaded_file:
                         df = pd.DataFrame(data["results"])
                         # print(f"API response:\n{json.dumps(data, indent=2)}")
                         if df.shape[0] == 0:
-                            st.error("No part found on the image. Please try another model")
+                            st.error(
+                                "No part found on the image. Please try another model"
+                            )
                             st.stop()
                     elif response.status_code == 555:
-                        st.error("Error recovering brick dataframe. Double-check the name of the segmentation model")
+                        st.error(
+                            "Error recovering brick dataframe. Double-check the name of the segmentation model"
+                        )
                         st.stop()
                     else:
                         st.error("API call failed")
@@ -71,15 +77,18 @@ if uploaded_file:
 
         # Use cached result
         if "api_data" in st.session_state:
-            st.image(b64decode(st.session_state.api_data["image"]))
+            st.image(b64decode(st.session_state.api_data["image"]),
+                     caption="Segmented image")
 
         # Store edited version in session_state
         if "edited_df" not in st.session_state:
             if "img_base64" in df.columns:
                 st.session_state.edited_df = df.copy()
                 # print(type(st.session_state.edited_df))
-                st.session_state.edited_df["img_base64"] = st.session_state.edited_df["img_base64"].apply(
-                    lambda b64: f"data:image/jpeg;base64,{b64}")
+                st.session_state.edited_df[
+                    "img_base64"] = st.session_state.edited_df[
+                        "img_base64"].apply(
+                            lambda b64: f"data:image/jpeg;base64,{b64}")
             else:
                 # IDK how to handle this lmao good luck
                 pass
@@ -89,17 +98,23 @@ if uploaded_file:
             st.session_state.edited_df = st.data_editor(
                 st.session_state.edited_df,
                 column_config={
-                    "keep": st.column_config.CheckboxColumn("Keep this part?"),
-                    "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
-                    "img_url": st.column_config.ImageColumn("From URL"),
-                    "img_base64": st.column_config.ImageColumn("From Base64"),
-                    "color": st.column_config.SelectboxColumn("Color", options=lego_colors["Name"].to_list())
+                    "keep":
+                    st.column_config.CheckboxColumn("Keep this part?"),
+                    "bricklink_url":
+                    st.column_config.LinkColumn("BrickLink",
+                                                display_text="View"),
+                    "img_url":
+                    st.column_config.ImageColumn("From URL"),
+                    "img_base64":
+                    st.column_config.ImageColumn("From Base64"),
+                    "color":
+                    st.column_config.SelectboxColumn(
+                        "Color", options=lego_colors["Name"].to_list())
                 },
                 use_container_width=True,
                 hide_index=True,
                 num_rows="fixed",
-                key="changes"
-            )
+                key="changes")
 
             # print(before_df.head())
             # print(st.session_state.edited_df.head())
