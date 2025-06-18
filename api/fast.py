@@ -197,12 +197,14 @@ def post_predict(data: PostPredictData):
             df.reset_index()
             df.insert(loc=0, column='img_base64', value=img_base64)
             df.insert(loc=0, column='image_num', value=i + 1)
-            df['color'] = "White"
-            df['keep'] = False
-            df.at[0, 'keep'] = True
+            # df['color'] = "White"
+            df['quantity'] = 0
+            df.at[0, 'quantity'] = 1
 
             df[['detected_color',
                 'detected_color_rgb']] = detect_lego_color(buf, lego_colors)
+
+            df['color'] = df['detected_color']
 
             def _part_colors(x):
                 _results = part_colors(x)

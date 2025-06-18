@@ -120,7 +120,6 @@ if uploaded_file:
             st.session_state.edited_df = st.data_editor(
                 styled_df,
                 column_config={
-                    "keep": st.column_config.CheckboxColumn("Keep this part?"),
                     "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
                     "img_url": st.column_config.ImageColumn("From URL"),
                     "img_base64": st.column_config.ImageColumn("From Base64"),
@@ -142,25 +141,19 @@ if uploaded_file:
 
             if st.button("Show Selected Parts"):
                 filtered_df = st.session_state.edited_df[
-                    (st.session_state.edited_df["keep"]) & (
+                    (st.session_state.edited_df["quantity"] != 0) & (
                         st.session_state.edited_df["rebrickable_id"].notna())
                 ]
-                # filtered_df = (
-                #     filtered_df
-                #     .groupby([col for col in filtered_df.columns if col != "quantity"], as_index=False)
-                #     .agg({"quantity": "sum"})
-                # )
-                # subset_columns = [
-                #     col for col in filtered_df.columns if (col != "colors" and col != "img_num")]
-                # st.dataframe(filtered_df)
-                filtered_df.drop_duplicates(
-                    subset=['id', 'color'], inplace=True)
-                # st.dataframe(filtered_df)
+                agg_dict = {col: 'first' for col in filtered_df.columns if col not in [
+                    'id', 'color', 'quantity']}
+                agg_dict['quantity'] = 'sum'
+                filtered_df = filtered_df.groupby(
+                    ['id', 'color'], as_index=False).agg(agg_dict)
+
                 st.write("### Selected Parts:")
                 st.dataframe(
                     filtered_df,
                     column_config={
-                        "keep": st.column_config.CheckboxColumn("Keep this part?"),
                         "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
                         "img_url": st.column_config.ImageColumn("From URL"),
                         "img_base64": st.column_config.ImageColumn("From Base64"),
@@ -171,7 +164,7 @@ if uploaded_file:
                     hide_index=True
                 )
 
-                #                if st.button("Save on Rebrickable Part List"):
+                # if st.button("Save on Rebrickable Part List"):
                 print("Saving selected parts to Rebrickable Part List...")
                 parts_list = [
                     {
@@ -182,7 +175,7 @@ if uploaded_file:
                         st.session_state.lego_colors.query(
                             f"name == @row['color']")['id'].values[0].item(),
                         "quantity":
-                        1 if row["keep"] else 0
+                        row["quanity"]
                     } for _, row in filtered_df.iterrows()
                 ]
                 # print(parts_list)
@@ -210,7 +203,7 @@ if uploaded_file:
                         st.error("API call failed")
                         st.stop()
 
-                #if st.button("Suggest sets to build"):
+                # if st.button("Suggest sets to build"):
                 print("Suggest sets to build with or without set colors...")
                 params = {"base64_json_parts_list": base64_json_parts_list}
                 with st.spinner("Calling API..."):
