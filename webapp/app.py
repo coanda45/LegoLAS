@@ -17,6 +17,8 @@ st.title("Please upload an image with your LEGO parts:")
 uploaded_file = st.file_uploader("Choose a file",
                                  type=["png", "jpg", "jpeg", "bmp", "gif"])
 
+api_base_url = st.secrets["API_BASE_URL"]
+
 if uploaded_file:
     try:
         image = Image.open(uploaded_file)
@@ -46,10 +48,10 @@ if uploaded_file:
             is_model_chosen = model_name is not None
 
             if is_model_chosen:
-                api_url = st.secrets["API_URL"]
                 payload = {"img_base64": img_base64, "model": model_name}
                 with st.spinner("Calling API..."):
-                    response = requests.post(api_url, json=payload)
+                    response = requests.post(
+                        f"{api_base_url}/predict", json=payload)
                     if response.status_code == 200:
                         st.session_state.api_data = response.json()
                         data = st.session_state.api_data
@@ -131,6 +133,49 @@ if uploaded_file:
             # print(before_df.compare(edited_df))
             if not before_df.equals(st.session_state.edited_df):
                 st.rerun()
+
+        if st.button("Show Selected Parts"):
+            filtered_df = st.session_state.edited_df[
+                st.session_state.edited_df["keep"] == True
+            ]
+            st.write("### Selected Parts:")
+            st.dataframe(
+                filtered_df,
+                column_config={
+                    "keep": st.column_config.CheckboxColumn("Keep this part?"),
+                    "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
+                    "img_url": st.column_config.ImageColumn("From URL"),
+                    "img_base64": st.column_config.ImageColumn("From Base64"),
+                    "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
+                    "detected_color_rgb": None
+                },
+                use_container_width=True
+            )
+
+        if st.button("Save on Rebrickable Part List"):
+            json_parts = [
+                {
+                    "part_num": row["rebrickable_id"],
+                    "color_id": row["detected_color_rgb"],  # TODO put color_id
+                    "quantity": 1 if row["keep"] else 0
+                }
+                for _, row in df.iterrows()
+            ]
+            params = {
+                "user_token": st.secrets["USER_TOKEN"],
+                "id_list": st.secrets["PART_LIST_ID"],
+                "json_parts": json_parts
+            }
+            with st.spinner("Calling API..."):
+                response = requests.get(
+                    f"{api_base_url}/add_parts_to_partlist", params=params)
+                if response.status_code == 200:
+                    st.session_state.api_data = response.json()
+                    data = st.session_state.api_data
+                    df = pd.DataFrame(data["results"])
+                else:
+                    st.error("API call failed")
+                    st.stop()
 
     except Exception as e:
         st.error(f"Error processing image: {e}")

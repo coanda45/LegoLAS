@@ -7,6 +7,12 @@ import warnings
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
+# TODO: Import your package, replace this by explicit imports of what you need
+from legolas.segmentation.registry import load_model_RF, load_SAM
+from legolas.classification.main import classify_part
+from legolas.classification.lego_color_detector import load_lego_colors, detect_lego_color
+from legolas.API_rebrickable.main_api import part_colors, add_parts_to_partlist
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -26,6 +32,7 @@ from legolas.segmentation.constants import RESIZE_VALUES, SAM_CONFIG_1, IMG_08_S
 from legolas.classification.lego_color_detector import load_lego_colors, detect_lego_color
 from legolas.API_rebrickable.main_api import part_colors
 from scripts.utils import resize_SAM_masks
+from scripts.download_csv import download_csv_elements
 
 load_dotenv(dotenv_path="../.env", override=True)
 
@@ -215,3 +222,8 @@ def post_predict(data: PostPredictData):
             "image": b64encode(img_bytes).decode('utf-8'),
             "results": results.to_dict(orient="records")
         })
+
+
+@app.get("/add_parts_to_partlist")
+def _add_parts_to_partlist(user_token, id_list, json_parts):
+    return add_parts_to_partlist(user_token, id_list, json_parts)
