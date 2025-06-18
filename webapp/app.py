@@ -42,9 +42,9 @@ if uploaded_file:
         if "api_data" not in st.session_state:
             model_options = {
                 "-": None,
-                "Quick and dirty": "LOD",
-                "Quick and not so dirty": "LBD",
-                "Slow but comprehensive (hopefully)": "SAM"
+                "(LOD) Quick and dirty": "LOD",
+                "(LBD) Quick and not so dirty": "LBD",
+                "(SAM) Slow but comprehensive (hopefully)": "SAM"
             }
             selected_label = st.selectbox("Choose a model for part detection:",
                                           list(model_options.keys()),
@@ -170,7 +170,7 @@ if uploaded_file:
                     use_container_width=True
                 )
 
-#                if st.button("Save on Rebrickable Part List"):
+                #                if st.button("Save on Rebrickable Part List"):
                 print("Saving selected parts to Rebrickable Part List...")
                 parts_list = [
                     {

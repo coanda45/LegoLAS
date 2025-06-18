@@ -13,27 +13,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
-# from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
+import cv2
+from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 
 # Local application
 from legolas.segmentation.registry import load_model_RF, load_SAM
 from legolas.classification.main import classify_part
-from legolas.classification.lego_color_detector import (
-    load_lego_colors,
-    detect_lego_color
-)
+from legolas.classification.lego_color_detector import (load_lego_colors,
+                                                        detect_lego_color)
 from legolas.API_rebrickable.main_api import part_colors
 from legolas.API_rebrickable.main import add_parts_to_username_partlist
-from legolas.segmentation.constants import (
-    RESIZE_VALUES,
-    # SAM_CONFIG_1,
-    IMG_08_SIZE,
-    ROBOFLOW_PROJECT_ID_LOD,
-    ROBOFLOW_PROJECT_VERSION_LOD,
-    ROBOFLOW_PROJECT_ID_LBD,
-    ROBOFLOW_PROJECT_VERSION_LBD
-)
-from scripts.utils import resize_SAM_masks
+from legolas.segmentation.constants import (SAM_CONFIG_1,
+                                            ROBOFLOW_PROJECT_ID_LOD,
+                                            ROBOFLOW_PROJECT_VERSION_LOD,
+                                            ROBOFLOW_PROJECT_ID_LBD,
+                                            ROBOFLOW_PROJECT_VERSION_LBD)
 
 load_dotenv(dotenv_path="../.env", override=True)
 
@@ -112,16 +106,12 @@ def post_predict(data: PostPredictData):
         preds = result["predictions"]
 
     elif data.model == "SAM":
-        ### TMP ###
-        # For the demo day, let's use precomputed results, since a Google Colab CPU computation lasts for 26 minutes :(
-        # image_arr = cv2.imread(temp_image_path)
-        # image_arr = cv2.cvtColor(image_arr, cv2.COLOR_BGR2RGB)
-        # mask_generator = SamAutomaticMaskGenerator(model=model, **SAM_CONFIG_1)
-        # preds = mask_generator.generate(image_arr)  # masks are renamed "preds" for consistency with RF
-        shrink_factor = max(IMG_08_SIZE[0] / RESIZE_VALUES[0],
-                            IMG_08_SIZE[1] / RESIZE_VALUES[1])
-        preds = resize_SAM_masks(shrink_factor)
-        ### TMP END ###
+        image_arr = cv2.imread(temp_image_path)
+        image_arr = cv2.cvtColor(image_arr, cv2.COLOR_BGR2RGB)
+        mask_generator = SamAutomaticMaskGenerator(model=model_SAM,
+                                                   **SAM_CONFIG_1)
+        preds = mask_generator.generate(
+            image_arr)  # masks are renamed "preds" for consistency with RF
 
     else:
         warnings.warn(
