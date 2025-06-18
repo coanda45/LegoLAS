@@ -2,13 +2,12 @@ import requests
 import requests_cache
 import csv
 import os
-import csv
 from requests.exceptions import HTTPError
 import pandas as pd
 
 REBRICKABLE_API_KEY = os.getenv("REBRICKABLE_API_KEY")
 
-requests_cache.install_cache('cache')
+cached_session = requests_cache.CachedSession('cache', expire_after=3600)
 
 
 def get_rebrickable_id(bricklink_id):
@@ -25,7 +24,7 @@ def get_rebrickable_id(bricklink_id):
     url = "https://rebrickable.com/api/v3/lego/parts/"
 
     params = {"bricklink_id": bricklink_id}
-    response = requests.get(url, headers=HEADERS, params=params)
+    response = cached_session.get(url, headers=HEADERS, params=params)
     response.raise_for_status()
     data = response.json()
     results = data.get("results", [])
@@ -64,10 +63,6 @@ def export_bricklink_to_rebrickable_csv(bricklink_ids,
     None
         La fonction écrit ou met à jour un fichier CSV sur le disque avec les résultats obtenus.
     """
-    HEADERS = {"Authorization": f"key {REBRICKABLE_API_KEY}"}
-    URL = "https://rebrickable.com/api/v3/lego/parts/"
-
-    all_results = []
     existing_data = {}
     max_ids_per_row = 0
 
@@ -424,7 +419,7 @@ def part_set(set_num):
 
     rows = []
     while url:
-        response = requests.get(url, headers=headers)
+        response = cached_session.get(url, headers=headers)
         response.raise_for_status()  # Lève une erreur si la requête échoue
         result = response.json()
 
@@ -468,7 +463,7 @@ def part_colors(bricklink_id):
         return pd.DataFrame()  # Retourne un DataFrame vide si aucun ID Rebrickable n'est trouvé
 
     url = f"https://rebrickable.com/api/v3/lego/parts/{rebrickable_id}/colors/"
-    response = requests.get(url, headers=HEADERS)
+    response = cached_session.get(url, headers=HEADERS)
     response.raise_for_status()
     data = response.json()
 

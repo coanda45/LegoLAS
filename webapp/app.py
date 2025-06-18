@@ -152,10 +152,10 @@ if uploaded_file:
                 # )
                 # subset_columns = [
                 #     col for col in filtered_df.columns if (col != "colors" and col != "img_num")]
-                st.dataframe(filtered_df)
+                # st.dataframe(filtered_df)
                 filtered_df.drop_duplicates(
                     subset=['id', 'color'], inplace=True)
-                st.dataframe(filtered_df)
+                # st.dataframe(filtered_df)
                 st.write("### Selected Parts:")
                 st.dataframe(
                     filtered_df,
@@ -167,7 +167,8 @@ if uploaded_file:
                         "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
                         "detected_color_rgb": None
                     },
-                    use_container_width=True
+                    use_container_width=True,
+                    hide_index=True
                 )
 
 #                if st.button("Save on Rebrickable Part List"):
