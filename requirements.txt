@@ -28,7 +28,7 @@ roboflow
 segment_anything
 torch
 torchvision
-cv2
+opencv-python
 
 # Images
 Pillow>=10.0.0

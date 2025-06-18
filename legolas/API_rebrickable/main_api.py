@@ -70,7 +70,7 @@ def export_bricklink_to_rebrickable_csv(bricklink_ids,
     existing_data = {}
     max_ids_per_row = 0
 
-    #Lire les données existantes (s'il y a un fichier)
+    # Lire les données existantes (s'il y a un fichier)
     if os.path.isfile(output_file):
         with open(output_file, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
@@ -448,7 +448,7 @@ def part_set(set_num):
     return df
 
 
-def part_color(bricklink_id):
+def part_colors(bricklink_id):
     """
     Récupère toutes les couleurs disponibles pour une pièce LEGO, à partir de son ID BrickLink.
 
@@ -482,7 +482,8 @@ def part_color(bricklink_id):
             "num_sets": item["num_sets"],
             "num_set_parts": item["num_set_parts"],
             "part_img_url": item["part_img_url"],
-            "elements": ', '.join(item["elements"])  # Convertit la liste en une chaîne de texte
+            # Convertit la liste en une chaîne de texte
+            "elements": ', '.join(item["elements"])
         })
 
     # Convertir en DataFrame pandas
