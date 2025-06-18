@@ -1,7 +1,8 @@
 # Standard library
 import io
 import traceback
-from base64 import b64encode, b64decode
+import json
+from base64 import b64encode, b64decode, urlsafe_b64encode
 
 # Third-party
 import streamlit as st
@@ -10,8 +11,9 @@ import pandas as pd
 from PIL import Image
 
 # Local application
-from scripts.utils import resize_image
 from legolas.segmentation.constants import RESIZE_VALUES
+from scripts.utils import resize_image
+# TODO Use API and not local version
 from scripts.lego_colors import get_all_lego_colors
 
 st.set_page_config(layout="wide")
@@ -112,6 +114,7 @@ if uploaded_file:
                 style_color_column, axis=1)
 
             if "lego_colors" not in st.session_state:
+                # TODO Use API and not local version
                 st.session_state.lego_colors = get_all_lego_colors()
 
             st.session_state.edited_df = st.data_editor(
@@ -137,48 +140,70 @@ if uploaded_file:
             if not before_df.equals(st.session_state.edited_df):
                 st.rerun()
 
-        if st.button("Show Selected Parts"):
-            filtered_df = st.session_state.edited_df[
-                st.session_state.edited_df["keep"] == True
-            ]
-            st.write("### Selected Parts:")
-            st.dataframe(
-                filtered_df,
-                column_config={
-                    "keep": st.column_config.CheckboxColumn("Keep this part?"),
-                    "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
-                    "img_url": st.column_config.ImageColumn("From URL"),
-                    "img_base64": st.column_config.ImageColumn("From Base64"),
-                    "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
-                    "detected_color_rgb": None
-                },
-                use_container_width=True
-            )
+            if st.button("Show Selected Parts"):
+                filtered_df = st.session_state.edited_df[
+                    (st.session_state.edited_df["keep"]) & (
+                        st.session_state.edited_df["rebrickable_id"].notna())
+                ]
+                # filtered_df = (
+                #     filtered_df
+                #     .groupby([col for col in filtered_df.columns if col != "quantity"], as_index=False)
+                #     .agg({"quantity": "sum"})
+                # )
+                # subset_columns = [
+                #     col for col in filtered_df.columns if (col != "colors" and col != "img_num")]
+                st.dataframe(filtered_df)
+                filtered_df.drop_duplicates(
+                    subset=['id', 'color'], inplace=True)
+                st.dataframe(filtered_df)
+                st.write("### Selected Parts:")
+                st.dataframe(
+                    filtered_df,
+                    column_config={
+                        "keep": st.column_config.CheckboxColumn("Keep this part?"),
+                        "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
+                        "img_url": st.column_config.ImageColumn("From URL"),
+                        "img_base64": st.column_config.ImageColumn("From Base64"),
+                        "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
+                        "detected_color_rgb": None
+                    },
+                    use_container_width=True
+                )
 
-        if st.button("Save on Rebrickable Part List"):
-            json_parts = [
-                {
-                    "part_num": row["rebrickable_id"],
-                    "color_id": row["detected_color_rgb"],  # TODO put color_id
-                    "quantity": 1 if row["keep"] else 0
+#                if st.button("Save on Rebrickable Part List"):
+                print("Saving selected parts to Rebrickable Part List...")
+                parts_list = [
+                    {
+                        "part_num": row["rebrickable_id"],
+                        # TODO put color_id
+                        "color_id": st.session_state.lego_colors.query(f"name == @row['color']")['id'].values[0].item(),
+                        "quantity": 1 if row["keep"] else 0
+                    }
+                    for _, row in filtered_df.iterrows()
+                ]
+                print(parts_list)
+                json_parts_list = json.dumps(parts_list)
+                print(json_parts_list)
+                base64_json_parts_list = urlsafe_b64encode(
+                    json_parts_list.encode()).decode()
+                print(base64_json_parts_list)
+                params = {
+                    "user_name": st.secrets["REBRICKABLE_USER_TOKEN"],
+                    "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
+                    "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
+                    "base64_json_parts_list": base64_json_parts_list
                 }
-                for _, row in df.iterrows()
-            ]
-            params = {
-                "user_token": st.secrets["USER_TOKEN"],
-                "id_list": st.secrets["PART_LIST_ID"],
-                "json_parts": json_parts
-            }
-            with st.spinner("Calling API..."):
-                response = requests.get(
-                    f"{api_base_url}/add_parts_to_partlist", params=params)
-                if response.status_code == 200:
-                    st.session_state.api_data = response.json()
-                    data = st.session_state.api_data
-                    df = pd.DataFrame(data["results"])
-                else:
-                    st.error("API call failed")
-                    st.stop()
+                with st.spinner("Calling API..."):
+                    response = requests.get(
+                        f"{api_base_url}/add_parts_to_username_partlist", params=params)
+                    if response.status_code == 200:
+                        url = response.json().get("url")
+                        print(url)
+                        st.markdown(
+                            f"[🔗 Open Link]({url})", unsafe_allow_html=True)
+                    else:
+                        st.error("API call failed")
+                        st.stop()
 
     except Exception as e:
         st.error(f"Error processing image: {e}")

@@ -1,8 +1,9 @@
 # Standard library
 import os
 import warnings
+import json
 from io import BytesIO
-from base64 import b64encode, b64decode
+from base64 import b64encode, b64decode, urlsafe_b64decode
 
 # Third-party
 import pandas as pd
@@ -21,7 +22,8 @@ from legolas.classification.lego_color_detector import (
     load_lego_colors,
     detect_lego_color
 )
-from legolas.API_rebrickable.main_api import part_colors, add_parts_to_partlist
+from legolas.API_rebrickable.main_api import part_colors
+from legolas.API_rebrickable.main import add_parts_to_username_partlist
 from legolas.segmentation.constants import (
     RESIZE_VALUES,
     # SAM_CONFIG_1,
@@ -198,6 +200,8 @@ def post_predict(data: PostPredictData):
 
             def _part_colors(x):
                 _results = part_colors(x)
+                if _results.empty:
+                    return pd.Series([None, []])
                 print(_results.rebrickable_id[0])
                 print(_results.color_name.to_list())
                 return _results.rebrickable_id[0], _results.color_name.to_list()
@@ -222,6 +226,13 @@ def post_predict(data: PostPredictData):
         })
 
 
-@app.get("/add_parts_to_partlist")
-def _add_parts_to_partlist(user_token, id_list, json_parts):
-    return add_parts_to_partlist(user_token, id_list, json_parts)
+@app.get("/add_parts_to_username_partlist")
+def get_add_parts_to_username_partlist(user_name, password, part_list_name, base64_json_parts_list):
+    json_parts_list = urlsafe_b64decode(
+        base64_json_parts_list.encode()).decode()
+    parts_list = json.loads(json_parts_list)
+    print(parts_list)
+    return JSONResponse(
+        content={
+            "url": add_parts_to_username_partlist(user_name, password, part_list_name, parts_list)
+        })

@@ -1,7 +1,4 @@
-import requests
-from requests.exceptions import HTTPError
-import pandas as pd
-from main_api import get_user_token, add_parts_to_partlist, get_or_create_partlist, delete_partlist
+from .main_api import get_user_token, add_parts_to_partlist, get_or_create_partlist, delete_partlist
 
 
 def add_parts_to_username_partlist(user_name, password, part_list_name,

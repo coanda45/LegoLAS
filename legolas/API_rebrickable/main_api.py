@@ -1,13 +1,14 @@
 import requests
+import requests_cache
 import csv
-import time
 import os
 import csv
-import json
 from requests.exceptions import HTTPError
 import pandas as pd
 
 REBRICKABLE_API_KEY = os.getenv("REBRICKABLE_API_KEY")
+
+requests_cache.install_cache('cache')
 
 
 def get_rebrickable_id(bricklink_id):
@@ -265,14 +266,14 @@ def csv_to_json_parts(csv_file):
     return parts_list
 
 
-def add_parts_to_partlist(user_token, id_list, json_parts):
+def add_parts_to_partlist(user_token, id_list, parts_list):
     """
     Ajoute ou met à jour plusieurs parts dans une Part List sur Rebrickable.
 
     Args:
         user_token (str): Le token utilisateur Rebrickable.
         id_list (int): L'ID de la Part List où ajouter les parts.
-        json_parts (list[dict]): Liste des pièces à ajouter ou mettre à jour.
+        parts_list (list[dict]): Liste des pièces à ajouter ou mettre à jour.
 
     Returns:
         bool: True si l'opération réussit, False sinon.
@@ -293,7 +294,7 @@ def add_parts_to_partlist(user_token, id_list, json_parts):
             for item in response.json().get("results", [])
         }
 
-        for part in json_parts:
+        for part in parts_list:
             part_key = f"{part['part_num']}-{part['color_id']}"
             quantity = part["quantity"]
 
