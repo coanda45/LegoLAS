@@ -182,12 +182,12 @@ if uploaded_file:
                     }
                     for _, row in filtered_df.iterrows()
                 ]
-                print(parts_list)
+                # print(parts_list)
                 json_parts_list = json.dumps(parts_list)
-                print(json_parts_list)
+                # print(json_parts_list)
                 base64_json_parts_list = urlsafe_b64encode(
                     json_parts_list.encode()).decode()
-                print(base64_json_parts_list)
+                # print(base64_json_parts_list)
                 params = {
                     "user_name": st.secrets["REBRICKABLE_USER_TOKEN"],
                     "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
@@ -202,6 +202,23 @@ if uploaded_file:
                         print(url)
                         st.markdown(
                             f"[🔗 Open Link]({url})", unsafe_allow_html=True)
+                    else:
+                        st.error("API call failed")
+                        st.stop()
+
+               if st.button("Suggest sets to build"):
+                print("Suggest sets to build with or without set colors...")
+                params = {
+                    "base64_json_parts_list": base64_json_parts_list
+                }
+                with st.spinner("Calling API..."):
+                    response = requests.get(
+                        f"{api_base_url}/generate_final_df", params=params)
+                    if response.status_code == 200:
+                        df_no_color_final = response.json().get("df_no_color_final")
+                        st.dataframe(df_no_color_final)
+                        df_color_final = response.json().get("df_color_final")
+                        st.dataframe(df_color_final)
                     else:
                         st.error("API call failed")
                         st.stop()

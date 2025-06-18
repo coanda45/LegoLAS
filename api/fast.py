@@ -33,6 +33,12 @@ from legolas.segmentation.constants import (
     ROBOFLOW_PROJECT_ID_LBD,
     ROBOFLOW_PROJECT_VERSION_LBD
 )
+from legolas.completion.main import (
+    download_csv_files,
+    list_set_contenant_au_moins_une_des_pieces,
+    available_part_num_dict,
+    generate_final_df
+)
 from scripts.utils import resize_SAM_masks
 
 load_dotenv(dotenv_path="../.env", override=True)
@@ -235,4 +241,25 @@ def get_add_parts_to_username_partlist(user_name, password, part_list_name, base
     return JSONResponse(
         content={
             "url": add_parts_to_username_partlist(user_name, password, part_list_name, parts_list)
+        })
+
+
+@app.get("/generate_final_df")
+def get_generate_final_df(base64_json_parts_list):
+    json_parts_list = urlsafe_b64decode(
+        base64_json_parts_list.encode()).decode()
+    parts_list = json.loads(json_parts_list)
+    print(parts_list)
+    df_inventories, df_inventory_parts, df_sets = download_csv_files()
+    sets_df = list_set_contenant_au_moins_une_des_pieces(
+        test_liste_part_dispo, df_inventories, df_inventory_parts)
+    available_qty, available_qty_no_color = available_part_num_dict(
+        parts_list)
+    df_no_color_final, df_color_final = generate_final_df(
+        sets_df, available_qty, available_qty_no_color, df_sets)
+
+    return JSONResponse(
+        content={
+            "df_no_color_final": df_no_color_final.to_dict(orient="records"),
+            "df_color_final": df_color_final.to_dict(orient="records")
         })
