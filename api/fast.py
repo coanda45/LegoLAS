@@ -262,9 +262,9 @@ def get_generate_final_df(base64_json_parts_list):
     return JSONResponse(
         content={
             "df_no_color_final":
-            df_no_color_final[['inventory_id', 'set_num', 'img_url']].to_json(
+            df_no_color_final[['inventory_id', 'img_url', 'set_num', 'percent_no_colour']].to_json(
                 orient="records"),
             "df_color_final":
-            df_color_final[['inventory_id', 'set_num',
-                            'img_url']].to_json(orient="records")
+            df_color_final[['inventory_id', 'img_url', 'set_num', 'percent_colour_match'
+                            ]].to_json(orient="records")
         })

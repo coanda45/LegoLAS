@@ -139,7 +139,14 @@ if uploaded_file:
             if not before_df.equals(st.session_state.edited_df):
                 st.rerun()
 
+            # Initialize unlock flag in session_state
+            if 'show_selected_parts' not in st.session_state:
+                st.session_state.show_selected_parts = False
+
             if st.button("Show Selected Parts"):
+                st.session_state.show_selected_parts = True
+
+            if st.session_state.show_selected_parts:
                 filtered_df = st.session_state.edited_df[
                     (st.session_state.edited_df["quantity"] != 0) & (
                         st.session_state.edited_df["rebrickable_id"].notna())
@@ -164,8 +171,6 @@ if uploaded_file:
                     hide_index=True
                 )
 
-                # if st.button("Save on Rebrickable Part List"):
-                print("Saving selected parts to Rebrickable Part List...")
                 parts_list = [
                     {
                         "part_num":
@@ -175,7 +180,7 @@ if uploaded_file:
                         st.session_state.lego_colors.query(
                             f"name == @row['color']")['id'].values[0].item(),
                         "quantity":
-                        row["quanity"]
+                            row["quantity"]
                     } for _, row in filtered_df.iterrows()
                 ]
                 # print(parts_list)
@@ -184,58 +189,80 @@ if uploaded_file:
                 base64_json_parts_list = urlsafe_b64encode(
                     json_parts_list.encode()).decode()
                 # print(base64_json_parts_list)
-                params = {
-                    "user_name": st.secrets["REBRICKABLE_USER_TOKEN"],
-                    "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
-                    "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
-                    "base64_json_parts_list": base64_json_parts_list
-                }
-                with st.spinner("Calling API..."):
-                    response = requests.get(
-                        f"{api_base_url}/add_parts_to_username_partlist",
-                        params=params)
-                    if response.status_code == 200:
-                        url = response.json().get("url")
-                        print(url)
-                        st.markdown(f"[🔗 Open Link]({url})",
-                                    unsafe_allow_html=True)
-                    else:
-                        st.error("API call failed")
-                        st.stop()
 
-                # if st.button("Suggest sets to build"):
-                print("Suggest sets to build with or without set colors...")
-                params = {"base64_json_parts_list": base64_json_parts_list}
-                with st.spinner("Calling API..."):
-                    response = requests.get(
-                        f"{api_base_url}/generate_final_df", params=params)
-                    if response.status_code == 200:
-                        print(type(response.json().get("df_no_color_final")))
-                        df_no_color_final = pd.DataFrame(
-                            json.loads(
-                                response.json().get("df_no_color_final")))
-                        st.dataframe(
-                            df_no_color_final,
-                            column_config={
-                                "img_url":
-                                st.column_config.ImageColumn("From URL"),
-                            },
-                            use_container_width=True,
-                            hide_index=True)
-                        print(type(response.json().get("df_color_final")))
-                        df_color_final = pd.DataFrame(
-                            json.loads(response.json().get("df_color_final")))
-                        st.dataframe(
-                            df_color_final,
-                            column_config={
-                                "img_url":
-                                st.column_config.ImageColumn("From URL"),
-                            },
-                            use_container_width=True,
-                            hide_index=True)
-                    else:
-                        st.error("API call failed")
-                        st.stop()
+                # Initialize unlock flag in session_state
+                if 'save_selected_parts' not in st.session_state:
+                    st.session_state.save_selected_parts = False
+
+                if st.button("Save on Rebrickable Part List"):
+                    st.session_state.save_selected_parts = True
+
+                # Conditional rendering of additional buttons
+                if st.session_state.save_selected_parts:
+                    print("Saving selected parts to Rebrickable Part List...")
+                    params = {
+                        "user_name": st.secrets["REBRICKABLE_USER_TOKEN"],
+                        "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
+                        "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
+                        "base64_json_parts_list": base64_json_parts_list
+                    }
+                    with st.spinner("Calling API..."):
+                        response = requests.get(
+                            f"{api_base_url}/add_parts_to_username_partlist", params=params)
+                        if response.status_code == 200:
+                            url = response.json().get("url")
+                            print(url)
+                            st.markdown(f"[🔗 Open Link]({url})",
+                                        unsafe_allow_html=True)
+                            st.session_state.save_selected_parts = False
+                        else:
+                            st.error("API call failed")
+                            st.stop()
+
+                # Initialize unlock flag in session_state
+                if 'show_suggested_sets' not in st.session_state:
+                    st.session_state.show_suggested_sets = False
+
+                if st.button("Suggest sets to build"):
+                    st.session_state.show_suggested_sets = True
+
+                # Conditional rendering of additional buttons
+                if st.session_state.show_suggested_sets:
+                    print("Suggest sets to build with or without set colors...")
+                    params = {"base64_json_parts_list": base64_json_parts_list}
+                    with st.spinner("Calling API..."):
+                        response = requests.get(
+                            f"{api_base_url}/generate_final_df", params=params)
+                        if response.status_code == 200:
+                            print(type(response.json().get("df_no_color_final")))
+                            df_no_color_final = pd.DataFrame(
+                                json.loads(
+                                    response.json().get("df_no_color_final")))
+                            st.dataframe(
+                                df_no_color_final,
+                                column_config={
+                                    "img_url":
+                                    st.column_config.ImageColumn(
+                                        "From URL", width="large"),
+                                },
+                                # use_container_width=True,
+                                hide_index=True)
+                            print(type(response.json().get("df_color_final")))
+                            df_color_final = pd.DataFrame(
+                                json.loads(response.json().get("df_color_final")))
+                            st.dataframe(
+                                df_color_final,
+                                column_config={
+                                    "img_url":
+                                    st.column_config.ImageColumn(
+                                        "From URL", width="large"),
+                                },
+                                # use_container_width=True,
+                                hide_index=True)
+                            st.session_state.show_suggested_sets = False
+                        else:
+                            st.error("API call failed")
+                            st.stop()
 
     except Exception as e:
         st.error(f"Error processing image: {e}")

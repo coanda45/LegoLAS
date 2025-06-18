@@ -629,5 +629,5 @@ if __name__ == "__main__":
     df_no_color_final, df_color_final = generate_final_df(
         sets_df, available_qty, available_qty_no_color, df_sets)
 
-    print(df_no_color_final.info())
-    print(df_color_final.info())
+    print(df_no_color_final)
+    print(df_color_final)
