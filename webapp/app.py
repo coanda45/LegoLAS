@@ -171,16 +171,19 @@ if uploaded_file:
                     hide_index=True
                 )
 
-#                if st.button("Save on Rebrickable Part List"):
+                #                if st.button("Save on Rebrickable Part List"):
                 print("Saving selected parts to Rebrickable Part List...")
                 parts_list = [
                     {
-                        "part_num": row["rebrickable_id"],
+                        "part_num":
+                        row["rebrickable_id"],
                         # TODO put color_id
-                        "color_id": st.session_state.lego_colors.query(f"name == @row['color']")['id'].values[0].item(),
-                        "quantity": 1 if row["keep"] else 0
-                    }
-                    for _, row in filtered_df.iterrows()
+                        "color_id":
+                        st.session_state.lego_colors.query(
+                            f"name == @row['color']")['id'].values[0].item(),
+                        "quantity":
+                        1 if row["keep"] else 0
+                    } for _, row in filtered_df.iterrows()
                 ]
                 # print(parts_list)
                 json_parts_list = json.dumps(parts_list)
@@ -196,29 +199,47 @@ if uploaded_file:
                 }
                 with st.spinner("Calling API..."):
                     response = requests.get(
-                        f"{api_base_url}/add_parts_to_username_partlist", params=params)
+                        f"{api_base_url}/add_parts_to_username_partlist",
+                        params=params)
                     if response.status_code == 200:
                         url = response.json().get("url")
                         print(url)
-                        st.markdown(
-                            f"[🔗 Open Link]({url})", unsafe_allow_html=True)
+                        st.markdown(f"[🔗 Open Link]({url})",
+                                    unsafe_allow_html=True)
                     else:
                         st.error("API call failed")
                         st.stop()
 
-               if st.button("Suggest sets to build"):
+                #if st.button("Suggest sets to build"):
                 print("Suggest sets to build with or without set colors...")
-                params = {
-                    "base64_json_parts_list": base64_json_parts_list
-                }
+                params = {"base64_json_parts_list": base64_json_parts_list}
                 with st.spinner("Calling API..."):
                     response = requests.get(
                         f"{api_base_url}/generate_final_df", params=params)
                     if response.status_code == 200:
-                        df_no_color_final = response.json().get("df_no_color_final")
-                        st.dataframe(df_no_color_final)
-                        df_color_final = response.json().get("df_color_final")
-                        st.dataframe(df_color_final)
+                        print(type(response.json().get("df_no_color_final")))
+                        df_no_color_final = pd.DataFrame(
+                            json.loads(
+                                response.json().get("df_no_color_final")))
+                        st.dataframe(
+                            df_no_color_final,
+                            column_config={
+                                "img_url":
+                                st.column_config.ImageColumn("From URL"),
+                            },
+                            use_container_width=True,
+                            hide_index=True)
+                        print(type(response.json().get("df_color_final")))
+                        df_color_final = pd.DataFrame(
+                            json.loads(response.json().get("df_color_final")))
+                        st.dataframe(
+                            df_color_final,
+                            column_config={
+                                "img_url":
+                                st.column_config.ImageColumn("From URL"),
+                            },
+                            use_container_width=True,
+                            hide_index=True)
                     else:
                         st.error("API call failed")
                         st.stop()

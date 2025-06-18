@@ -252,14 +252,17 @@ def get_generate_final_df(base64_json_parts_list):
     print(parts_list)
     df_inventories, df_inventory_parts, df_sets = download_csv_files()
     sets_df = list_set_contenant_au_moins_une_des_pieces(
-        test_liste_part_dispo, df_inventories, df_inventory_parts)
-    available_qty, available_qty_no_color = available_part_num_dict(
-        parts_list)
+        parts_list, 5, df_inventories, df_inventory_parts)
+    available_qty, available_qty_no_color = available_part_num_dict(parts_list)
     df_no_color_final, df_color_final = generate_final_df(
         sets_df, available_qty, available_qty_no_color, df_sets)
 
     return JSONResponse(
         content={
-            "df_no_color_final": df_no_color_final.to_dict(orient="records"),
-            "df_color_final": df_color_final.to_dict(orient="records")
+            "df_no_color_final":
+            df_no_color_final[['inventory_id', 'set_num', 'img_url']].to_json(
+                orient="records"),
+            "df_color_final":
+            df_color_final[['inventory_id', 'set_num', 'img_url'
+                            ]].set_num.to_json(orient="records")
         })

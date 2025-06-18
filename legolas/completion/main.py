@@ -619,8 +619,9 @@ if __name__ == "__main__":
     test_liste_part_dispo = generate_test_liste_part_disponible()
     # génération de la dataframe avec tous les sets utilisant au moins 1 part_num
     # de la liste des pièces dispo
+
     sets_df = list_set_contenant_au_moins_une_des_pieces(
-        test_liste_part_dispo, df_inventories, df_inventory_parts)
+        test_liste_part_dispo, 5, df_inventories, df_inventory_parts)
     # creation des dict des pièces disponibles
     available_qty, available_qty_no_color = available_part_num_dict(
         test_liste_part_dispo)
@@ -628,5 +629,5 @@ if __name__ == "__main__":
     df_no_color_final, df_color_final = generate_final_df(
         sets_df, available_qty, available_qty_no_color, df_sets)
 
-    print(df_no_color_final)
-    print(df_color_final)
+    print(df_no_color_final.info())
+    print(df_color_final.info())
