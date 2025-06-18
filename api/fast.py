@@ -1,43 +1,41 @@
-import requests
+# Standard library
 import os
-import pandas as pd
-import base64
 import warnings
-
-from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
+from base64 import b64encode, b64decode
 
-# TODO: Import your package, replace this by explicit imports of what you need
-from legolas.segmentation.registry import load_model_RF, load_SAM
-from legolas.classification.main import classify_part
-from legolas.classification.lego_color_detector import load_lego_colors, detect_lego_color
-from legolas.API_rebrickable.main_api import part_colors, add_parts_to_partlist
-
+# Third-party
+import pandas as pd
+from PIL import Image, ImageDraw, ImageFont
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
 from pydantic import BaseModel
-
 from dotenv import load_dotenv
+# from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 
-from base64 import b64encode, b64decode
-
-from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
-import cv2
-
+# Local application
 from legolas.segmentation.registry import load_model_RF, load_SAM
 from legolas.classification.main import classify_part
-from legolas.segmentation.constants import RESIZE_VALUES, SAM_CONFIG_1, IMG_08_SIZE, ROBOFLOW_PROJECT_ID_LOD, ROBOFLOW_PROJECT_VERSION_LOD, ROBOFLOW_PROJECT_ID_LBD, ROBOFLOW_PROJECT_VERSION_LBD
-from legolas.classification.lego_color_detector import load_lego_colors, detect_lego_color
-from legolas.API_rebrickable.main_api import part_colors
+from legolas.classification.lego_color_detector import (
+    load_lego_colors,
+    detect_lego_color
+)
+from legolas.API_rebrickable.main_api import part_colors, add_parts_to_partlist
+from legolas.segmentation.constants import (
+    RESIZE_VALUES,
+    # SAM_CONFIG_1,
+    IMG_08_SIZE,
+    ROBOFLOW_PROJECT_ID_LOD,
+    ROBOFLOW_PROJECT_VERSION_LOD,
+    ROBOFLOW_PROJECT_ID_LBD,
+    ROBOFLOW_PROJECT_VERSION_LBD
+)
 from scripts.utils import resize_SAM_masks
-from scripts.download_csv import download_csv_elements
 
 load_dotenv(dotenv_path="../.env", override=True)
 
-ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
-# BRICKOGNIZE_URL = os.getenv("BRICKOGNIZE_URL")
+ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY", "")
 
 
 class PostPredictData(BaseModel):
@@ -149,13 +147,13 @@ def post_predict(data: PostPredictData):
             upper = int(y - h / 2)
             right = int(x + w / 2)
             lower = int(y + h / 2)
-            confidence = pred["confidence"]
+            # confidence = pred["confidence"]
         else:
             # SAM
             left, upper, w, h = pred["bbox"]
             right = left + w
             lower = upper + h
-            confidence = pred["predicted_iou"]
+            # confidence = pred["predicted_iou"]
 
         # Crop on bbox
         cropped = image_orig.crop((left, upper, right, lower))

@@ -1,12 +1,15 @@
-import streamlit as st
-from PIL import Image
+# Standard library
 import io
+import traceback
 from base64 import b64encode, b64decode
+
+# Third-party
+import streamlit as st
 import requests
 import pandas as pd
-import traceback
-import json
+from PIL import Image
 
+# Local application
 from scripts.utils import resize_image
 from legolas.segmentation.constants import RESIZE_VALUES
 from scripts.lego_colors import get_all_lego_colors
