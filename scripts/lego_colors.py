@@ -33,4 +33,11 @@ def get_all_lego_colors() -> pd.DataFrame:
 
     # Convert list of dicts to DataFrame
     df = pd.DataFrame(all_colors)
+    df["id"] = pd.to_numeric(df["id"], downcast="integer")
     return df
+
+
+if __name__ == "__main__":
+    df = get_all_lego_colors()
+    print(df.info())
+    print(df.query("name == 'Glitter Milky White'")['id'].values[0])
