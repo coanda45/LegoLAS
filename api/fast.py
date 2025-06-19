@@ -97,7 +97,7 @@ def post_predict(data: PostPredictData):
       a JSONResponse object containing info from Brickognize (and more?)
     """
 
-    temp_image_path = "temp.jpeg"
+    temp_image_path = "/tmp/temp.jpeg"
     with open(temp_image_path, "wb") as tmp_file:
         tmp_file.write(b64decode(data.img_base64))
     image = Image.open(temp_image_path)
@@ -118,7 +118,8 @@ def post_predict(data: PostPredictData):
     elif data.model == "SAM":
         image_arr = cv2.imread(temp_image_path)
         image_arr = cv2.cvtColor(image_arr, cv2.COLOR_BGR2RGB)
-        mask_generator = SamAutomaticMaskGenerator(model=model, **SAM_CONFIG_1)
+        mask_generator = SamAutomaticMaskGenerator(
+            model=model_SAM, **SAM_CONFIG_1)
         # masks are renamed "preds" for consistency with RF
         preds = mask_generator.generate(image_arr)
     else:
