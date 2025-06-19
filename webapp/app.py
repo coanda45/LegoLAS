@@ -1,4 +1,6 @@
 # Standard library
+import sys
+import os
 import io
 import traceback
 import json
@@ -9,6 +11,9 @@ import streamlit as st
 import requests
 import pandas as pd
 from PIL import Image
+
+# Add the parent directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Local application
 from legolas.segmentation.constants import RESIZE_VALUES
