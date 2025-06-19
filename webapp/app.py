@@ -47,8 +47,8 @@ if uploaded_file:
         if "api_data" not in st.session_state:
             model_options = {
                 "-": None,
-                "(RoboFlow Lego Object Detection) Quick and dirty": "LOD",
-                "(RoboFlow LegoB rick Detector) Quick and not so dirty": "LBD",
+                "(Roboflow Lego Object Detection) Quick and dirty": "LOD",
+                "(Roboflow Lego Brick Detector) Quick and not so dirty": "LBD",
                 "(Meta Segment Anything Model) Slow but comprehensive (hopefully)": "SAM"
             }
             selected_label = st.selectbox("Choose a model for part detection:",
