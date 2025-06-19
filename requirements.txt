@@ -1,9 +1,9 @@
 # data science
-numpy<2.0.0
+numpy==1.26.4
 pandas==2.2.3
 
 # Uncomment if you use sklearn
-# scikit-learn==1.6.1
+scikit-learn==1.7.0
 
 # Install the correct TensorFlow version
 # Uncomment if you use TensorFlow
@@ -15,23 +15,23 @@ pandas==2.2.3
 # google-cloud-storage
 
 # API
-fastapi
-uvicorn
+fastapi==0.115.13
+uvicorn==0.34.3
 
 # Web
-streamlit
+streamlit==1.46.0
 
 # RoboFlow
-roboflow
+roboflow==1.1.66
 
 # SAM
-segment_anything
-torch
-torchvision
-opencv-python
+segment-anything==1.0
+torch==2.7.1
+torchvision==0.22.1
+opencv-python==4.11.0.86
 
 # Images
-Pillow>=10.0.0
+pillow==11.2.1
 
-requests
-requests_cache
+requests==2.32.4
+requests-cache==1.2.1
