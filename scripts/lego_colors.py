@@ -2,7 +2,9 @@ import requests
 import pandas as pd
 import os
 
-REBRICKABLE_API_KEY = os.getenv("REBRICKABLE_API_KEY")
+from streamlit import secrets
+
+REBRICKABLE_API_KEY = secrets["REBRICKABLE_API_KEY"]
 
 
 def get_all_lego_colors() -> pd.DataFrame:
