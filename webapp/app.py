@@ -24,6 +24,9 @@ uploaded_file = st.file_uploader("Choose a file",
 
 api_base_url = st.secrets["API_BASE_URL"]
 
+table_max_height = 555
+line_height  = 36
+
 if uploaded_file:
     try:
         image = Image.open(uploaded_file)
@@ -115,14 +118,26 @@ if uploaded_file:
                 # TODO Use API and not local version
                 st.session_state.lego_colors = get_all_lego_colors()
 
+            height = min(table_max_height, line_height * (len(st.session_state.edited_df) + 1))  # 36 px per line but no more than 555 px
             st.session_state.edited_df = st.data_editor(
                 styled_df,
+                height=height,
                 column_config={
-                    "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
-                    "img_url": st.column_config.ImageColumn("From URL"),
-                    "img_base64": st.column_config.ImageColumn("From Base64"),
+                    "image_num": st.column_config.NumberColumn("Crop ID"),
+                    "img_base64": st.column_config.ImageColumn("Crop image"),
+                    "id": st.column_config.NumberColumn("Bricklink ID"),
+                    "name": st.column_config.TextColumn("Bricklink name"),
+                    "img_url": st.column_config.ImageColumn("Bricklink image"),
+                    "category": st.column_config.TextColumn("Bricklink category"),
+                    "type" : None,
+                    "score": st.column_config.NumberColumn("Confidence (%)", format="%.3f"),
+                    "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),
+                    "quantity": st.column_config.NumberColumn("Quantity"),
+                    "detected_color": st.column_config.ImageColumn("Detected color"),
                     "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
-                    "detected_color_rgb": None
+                    "detected_color_rgb": None,
+                    "rebrickable_id": st.column_config.NumberColumn("Rebrickable ID"),
+                    # "colors": st.column_config.TextColumn("Available colors", disabled=True),
                 },
                 use_container_width=True,
                 hide_index=True,
@@ -154,16 +169,25 @@ if uploaded_file:
                 agg_dict['quantity'] = 'sum'
                 filtered_df = filtered_df.groupby(
                     ['id', 'color'], as_index=False).agg(agg_dict)
-
+                height = min(table_max_height, line_height * (len(st.session_state.edited_df) + 1))
                 st.write("### Selected parts:")
                 st.dataframe(
                     filtered_df,
                     column_config={
-                        "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
-                        "img_url": st.column_config.ImageColumn("From URL"),
-                        "img_base64": st.column_config.ImageColumn("From Base64"),
+                        "id": st.column_config.NumberColumn("Bricklink ID"),
                         "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
-                        "detected_color_rgb": None
+                        "image_num": st.column_config.NumberColumn("Crop ID"),
+                        "img_base64": st.column_config.ImageColumn("Crop image"),
+                        "name": st.column_config.TextColumn("Bricklink name"),
+                        "img_url": st.column_config.ImageColumn("Bricklink image"),
+                        "category": st.column_config.TextColumn("Bricklink category"),
+                        "type" : None,
+                        "score": st.column_config.NumberColumn("Confidence (%)", format="%.3f"),
+                        "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),
+                        "detected_color": st.column_config.ImageColumn("Detected color"),
+                        "detected_color_rgb": None,
+                        "rebrickable_id": st.column_config.NumberColumn("Rebrickable ID"),
+                        "quantity": st.column_config.NumberColumn("Quantity"),
                     },
                     use_container_width=True,
                     hide_index=True
@@ -199,7 +223,7 @@ if uploaded_file:
 
                 if st.session_state.show_form:
                     st.subheader("Rebrickable authentication:")
-                    st.text("Please authenticate to Rebrickable in order to save your part list")
+                    st.text("Please authenticate to Rebrickable in order to save your part list.")
                     st.text("Entering a new part list will create it. Entering an existing one will expand it.")
                     with st.form("rebrickable_authentication"):
                         username = st.text_input("Username", type="default")
@@ -245,27 +269,31 @@ if uploaded_file:
                             f"{api_base_url}/generate_final_df", params=params)
                         if response.status_code == 200:
                             print(type(response.json().get("df_no_color_final")))
+                            st.write("### Available sets, discarding colour matching:")
                             df_no_color_final = pd.DataFrame(
                                 json.loads(
                                     response.json().get("df_no_color_final")))
                             st.dataframe(
                                 df_no_color_final,
                                 column_config={
-                                    "img_url":
-                                    st.column_config.ImageColumn(
-                                        "From URL", width="large"),
+                                    "inventory_id": st.column_config.NumberColumn("Inventory ID"),
+                                    "img_url": st.column_config.ImageColumn("Set image", width="large"),
+                                    "set_num": st.column_config.TextColumn("Set ID"),
+                                    "percent_no_colour": st.column_config.NumberColumn("Available parts (%)"),
                                 },
                                 # use_container_width=True,
                                 hide_index=True)
                             print(type(response.json().get("df_color_final")))
+                            st.write("### Available sets, taking colour matching into account:")
                             df_color_final = pd.DataFrame(
                                 json.loads(response.json().get("df_color_final")))
                             st.dataframe(
                                 df_color_final,
                                 column_config={
-                                    "img_url":
-                                    st.column_config.ImageColumn(
-                                        "From URL", width="large"),
+                                    "inventory_id": st.column_config.NumberColumn("Inventory ID"),
+                                    "img_url": st.column_config.ImageColumn("Set image"),
+                                    "set_num": st.column_config.TextColumn("Set ID"),
+                                    "percent_colour_match": st.column_config.NumberColumn("Available parts (%)"),
                                 },
                                 # use_container_width=True,
                                 hide_index=True)
