@@ -15,8 +15,11 @@ FROM python:3.10.6
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y libgl1
+RUN mkdir models
 
 # Copy our code
+COPY resources/Roboto_Condensed-Medium.ttf resources/Roboto_Condensed-Medium.ttf
 COPY legolas legolas
 COPY api api
 
