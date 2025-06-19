@@ -239,6 +239,7 @@ if uploaded_file:
                         response = requests.get(
                             f"{api_base_url}/generate_final_df", params=params)
                         if response.status_code == 200:
+                            st.write("### Available sets, discarding colour matching:")
                             df_no_color_final = pd.DataFrame(
                                 json.loads(
                                     response.json().get("df_no_color_final")))
@@ -251,6 +252,7 @@ if uploaded_file:
                                 },
                                 # use_container_width=True,
                                 hide_index=True)
+                            st.write("### Available sets, taking colour matching into account:")
                             df_color_final = pd.DataFrame(
                                 json.loads(response.json().get("df_color_final")))
                             st.dataframe(
