@@ -33,7 +33,7 @@ L'algorithme, agnostique du modèle, est le suivant :
 Les pièces sur les mini-photos sont identifiées par [Brickognize](https://brickognize.com/), une API basée sur les réseaux de neurones convolutifs (CNN). Le modèle utilisé par Brickognize a une précision de 91.3 % en conditions réelles et de 98.7 % en environnement contrôlé. Un tableau est rempli avec, pour chaque pièce identifiée :
 - Attribution des références Brinklink en fonction de leur forme.
 - Comparaison avec une base de données Rebrickable (API) pour obtenir les identifiants Rebrickable.
-- Obtention de la couleur de la pièce par ⚠️ <span style="color: red;">TODO AJOUTER LA TECHNIQUE UTILISEE<span>⚠️
+- La couleur de la pièce est la couleur dominante de la mini-photo, obtenue par un algorithme K-means. Celui-ci regroupe les pixels en clusters de couleurs et renvoie la plus fréquente.
 
 ### 🏗️ Recherche des sets réalisables
 - Extraction des sets LEGO/Rebrickable compatibles avec les pièces trouvées.
@@ -45,7 +45,7 @@ Les pièces sur les mini-photos sont identifiées par [Brickognize](https://bric
 ## 📦 Technologies utilisées
 
 - Python pour le traitement des données.
-- Lego Object Detection model (LOD), Lego Brick Detector model (LBD) ou Segment Anything Model (SAM) pour la segmentation des pièces LEGO.
+- [Lego Object Detection v2](https://universe.roboflow.com/test-lego-brick-annotatie/lego_object_detection-5lfzr/) (LOD), [Lego Brick Detector v1](https://universe.roboflow.com/vcomtask3/lego-brick-detector-xvqkq) (LBD) ou [Segment Anything Model](https://segment-anything.com/) (SAM) pour la segmentation des pièces LEGO.
 - API Brickognize pour la classification des pièces LEGO.
 - API Rebrickable pour récupération des détails complémentaires.
 - Pandas pour l’exploitation des CSV (base de données Rebrickable), l'analyse et la gestion des données ainsi que la proposition des sets.
@@ -66,28 +66,45 @@ pip install -r requirements.txt
 ```
 
 ### 3. Configurer l’accès à Roboflow, Brickognize et Rebrickable
-À la racine du projet, créer le fichier `.env` avec le contenu suivant :
+À la racine du projet, copier le fichier `.env.placeholder` en `.env`, puis dans ce dernier modifier la valeur de `REBRICKABLE_API_KEY`:
 ```bash
 ROBOFLOW_API_KEY=gg3HUiqtr5vsnXyVy47b  # public key for using the 2 Roboflow models
 BRICKOGNIZE_URL=https://api.brickognize.com/predict
 REBRICKABLE_API_KEY=<your_rebrickable_api_key>
 ```
-⚠️ <span style="color: red;">TODO d'autres éléments dans le .env ?<span> ⚠️
+⚠️ Contrairement au `secrets.toml`, les valeurs des variables ne doivent pas être entourées de guillemets (`VAR=val`).
 
-La clé API [Rebrickable](https://rebrickable.com/home/) s'obtient en y créant un compte puis via le chemin `Profile` → `Settings` → `API` → `Generate new API Key`. C'est nécessaie même pour tester la segmentation.
+La clé API [Rebrickable](https://rebrickable.com/home/) s'obtient en y créant un compte puis via le chemin `Profile` → `Settings` → `API` → `Generate new API Key` (cf. image partie 4. ci-dessous). C'est nécessaire même pour tester la segmentation.
+
+Une fois le `.env` finalisé, prendre en compte ses modifications avec les 2 commandes suivantes :
+```bash
+direnv allow
+direnv reload .
+```
+Toute modification ultérieure du `.env` nécessite à nouveau ces commandes.
 
 ### 4. Définir l'URL locale
-À la racine du projet, créer le dossier `.streamlit` puis y créer le fichier `secrets.toml` avec le contenu suivant :
+Dans le dossier `.streamlit`, copier le fichier `secrets.toml.placeholder` en `secrets.toml`, et adapter le contenu de ce dernier :
 ```bash
 API_BASE_URL="http://localhost:8000"
+REBRICKABLE_USER_NAME="<your_rebrickable_account_username>"
+RERICKABLE_USER_PASSWORD="<your_rebrickable_real_account_password>"
+REBRICKABLE_PART_LIST_NAME="<a_new_or_existing_name_for_a_part_list>"
 ```
+⚠️ Contrairement au `.env`, les valeurs doivent être entourées de guillemets (`VAR="val"`).
+
+Le username Rebrickable s'obtient en y créant un compte puis via le chemin `Profile` → `Account` → `Username` (cf. image ci-dessous)
+
+<img src="./resources/rb_variables.png" alt="Logo" width="768"/>
+
+Si la part list Rebrickable existe déjà, elle sera complétée (et non écrasée). Si elle n'existe pas, elle sera créée.
 
 ### 5. Démarrer le serveur web local
 Dans un premier terminal, se déplacer à la racine du projet (`legoLAS/`) puis exécuter la commande
 ```bash
 uvicorn api.fast:app
 ```
-Dans un second  terminal, se déplacer à la racine du projet (`legoLAS/`) puis exécuter la commande
+Dans un second terminal, se déplacer à la racine du projet (`legoLAS/`) puis exécuter la commande
 ```bash
 streamlit run webapp/app.py
 ```
@@ -105,6 +122,3 @@ Pour une détection et une reconnaissance optimales des pièces, il faut veiller
 - Les pièces LEGO sont spatialement séparées les unes des autres.
 - La photo est prise vue du dessus, légèrement en biais ; éviter les vues d'avion ou les photos rasantes, au risque de ne pas pouvoir détecter les 3 dimensions des pièces.
 - Dans le cas du modèle SAM (l'entrée "Slow but comprehensive" du menu déroulant) : le fond doit être le plus uniforme possible et sans élément indésirable (papier, bout de drap, zone foncée sur le parquet, etc.) car SAM ne "sait" pas qu'il doit se limiter aux LEGO et détecte tout ce qu'il peut ; si beaucoup d'éléments polluent la photo, l'algorithme de classification sera plus long et la liste des résultats pourra elle aussi être polluée.
-
-# Usage
-Document main functionalities of the package here <- de quoi ?
