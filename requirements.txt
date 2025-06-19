@@ -32,3 +32,6 @@ opencv-python
 
 # Images
 Pillow>=10.0.0
+
+requests
+requests_cache

@@ -7,13 +7,14 @@ from base64 import b64encode, b64decode, urlsafe_b64decode
 
 # Third-party
 import pandas as pd
+import cv2
 from PIL import Image, ImageDraw, ImageFont
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
-# from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
+from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 
 # Local application
 from legolas.segmentation.registry import load_model_RF, load_SAM
@@ -25,15 +26,18 @@ from legolas.classification.lego_color_detector import (
 from legolas.API_rebrickable.main_api import part_colors
 from legolas.API_rebrickable.main import add_parts_to_username_partlist
 from legolas.segmentation.constants import (
-    RESIZE_VALUES,
-    # SAM_CONFIG_1,
-    IMG_08_SIZE,
+    SAM_CONFIG_1,
     ROBOFLOW_PROJECT_ID_LOD,
     ROBOFLOW_PROJECT_VERSION_LOD,
     ROBOFLOW_PROJECT_ID_LBD,
     ROBOFLOW_PROJECT_VERSION_LBD
 )
-from scripts.utils import resize_SAM_masks
+from legolas.completion.main import (
+    download_csv_files,
+    list_set_contenant_au_moins_une_des_pieces,
+    available_part_num_dict,
+    generate_final_df
+)
 
 load_dotenv(dotenv_path="../.env", override=True)
 
@@ -93,7 +97,7 @@ def post_predict(data: PostPredictData):
       a JSONResponse object containing info from Brickognize (and more?)
     """
 
-    temp_image_path = "temp.jpeg"
+    temp_image_path = "/tmp/temp.jpeg"
     with open(temp_image_path, "wb") as tmp_file:
         tmp_file.write(b64decode(data.img_base64))
     image = Image.open(temp_image_path)
@@ -112,17 +116,12 @@ def post_predict(data: PostPredictData):
         preds = result["predictions"]
 
     elif data.model == "SAM":
-        ### TMP ###
-        # For the demo day, let's use precomputed results, since a Google Colab CPU computation lasts for 26 minutes :(
-        # image_arr = cv2.imread(temp_image_path)
-        # image_arr = cv2.cvtColor(image_arr, cv2.COLOR_BGR2RGB)
-        # mask_generator = SamAutomaticMaskGenerator(model=model, **SAM_CONFIG_1)
-        # preds = mask_generator.generate(image_arr)  # masks are renamed "preds" for consistency with RF
-        shrink_factor = max(IMG_08_SIZE[0] / RESIZE_VALUES[0],
-                            IMG_08_SIZE[1] / RESIZE_VALUES[1])
-        preds = resize_SAM_masks(shrink_factor)
-        ### TMP END ###
-
+        image_arr = cv2.imread(temp_image_path)
+        image_arr = cv2.cvtColor(image_arr, cv2.COLOR_BGR2RGB)
+        mask_generator = SamAutomaticMaskGenerator(
+            model=model_SAM, **SAM_CONFIG_1)
+        # masks are renamed "preds" for consistency with RF
+        preds = mask_generator.generate(image_arr)
     else:
         warnings.warn(
             f"data.model must be either 'LOD', 'LBD' or 'SAM', got '{data.model}'"
@@ -191,12 +190,14 @@ def post_predict(data: PostPredictData):
             df.reset_index()
             df.insert(loc=0, column='img_base64', value=img_base64)
             df.insert(loc=0, column='image_num', value=i + 1)
-            df['color'] = "White"
-            df['keep'] = False
-            df.at[0, 'keep'] = True
+            # df['color'] = "White"
+            df['quantity'] = 0
+            df.at[0, 'quantity'] = 1
 
             df[['detected_color',
                 'detected_color_rgb']] = detect_lego_color(buf, lego_colors)
+
+            df['color'] = df['detected_color']
 
             def _part_colors(x):
                 _results = part_colors(x)
@@ -235,4 +236,28 @@ def get_add_parts_to_username_partlist(user_name, password, part_list_name, base
     return JSONResponse(
         content={
             "url": add_parts_to_username_partlist(user_name, password, part_list_name, parts_list)
+        })
+
+
+@app.get("/generate_final_df")
+def get_generate_final_df(base64_json_parts_list):
+    json_parts_list = urlsafe_b64decode(
+        base64_json_parts_list.encode()).decode()
+    parts_list = json.loads(json_parts_list)
+    print(parts_list)
+    df_inventories, df_inventory_parts, df_sets = download_csv_files()
+    sets_df = list_set_contenant_au_moins_une_des_pieces(
+        parts_list, 5, df_inventories, df_inventory_parts)
+    available_qty, available_qty_no_color = available_part_num_dict(parts_list)
+    df_no_color_final, df_color_final = generate_final_df(
+        sets_df, available_qty, available_qty_no_color, df_sets)
+
+    return JSONResponse(
+        content={
+            "df_no_color_final":
+            df_no_color_final[['inventory_id', 'img_url', 'set_num', 'percent_no_colour']].to_json(
+                orient="records"),
+            "df_color_final":
+            df_color_final[['inventory_id', 'img_url', 'set_num', 'percent_colour_match'
+                            ]].to_json(orient="records")
         })

@@ -42,9 +42,9 @@ if uploaded_file:
         if "api_data" not in st.session_state:
             model_options = {
                 "-": None,
-                "Quick and dirty": "LOD",
-                "Quick and not so dirty": "LBD",
-                "Slow but comprehensive (hopefully)": "SAM"
+                "(RoboFlow Lego Object Detection) Quick and dirty": "LOD",
+                "(RoboFlow LegoB rick Detector) Quick and not so dirty": "LBD",
+                "(Meta Segment Anything Model) Slow but comprehensive (hopefully)": "SAM"
             }
             selected_label = st.selectbox("Choose a model for part detection:",
                                           list(model_options.keys()),
@@ -120,7 +120,6 @@ if uploaded_file:
             st.session_state.edited_df = st.data_editor(
                 styled_df,
                 column_config={
-                    "keep": st.column_config.CheckboxColumn("Keep this part?"),
                     "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
                     "img_url": st.column_config.ImageColumn("From URL"),
                     "img_base64": st.column_config.ImageColumn("From Base64"),
@@ -140,70 +139,130 @@ if uploaded_file:
             if not before_df.equals(st.session_state.edited_df):
                 st.rerun()
 
+            # Initialize unlock flag in session_state
+            if 'show_selected_parts' not in st.session_state:
+                st.session_state.show_selected_parts = False
+
             if st.button("Show Selected Parts"):
+                st.session_state.show_selected_parts = True
+
+            if st.session_state.show_selected_parts:
                 filtered_df = st.session_state.edited_df[
-                    (st.session_state.edited_df["keep"]) & (
+                    (st.session_state.edited_df["quantity"] != 0) & (
                         st.session_state.edited_df["rebrickable_id"].notna())
                 ]
-                # filtered_df = (
-                #     filtered_df
-                #     .groupby([col for col in filtered_df.columns if col != "quantity"], as_index=False)
-                #     .agg({"quantity": "sum"})
-                # )
-                # subset_columns = [
-                #     col for col in filtered_df.columns if (col != "colors" and col != "img_num")]
-                st.dataframe(filtered_df)
-                filtered_df.drop_duplicates(
-                    subset=['id', 'color'], inplace=True)
-                st.dataframe(filtered_df)
+                agg_dict = {col: 'first' for col in filtered_df.columns if col not in [
+                    'id', 'color', 'quantity']}
+                agg_dict['quantity'] = 'sum'
+                filtered_df = filtered_df.groupby(
+                    ['id', 'color'], as_index=False).agg(agg_dict)
+
                 st.write("### Selected Parts:")
                 st.dataframe(
                     filtered_df,
                     column_config={
-                        "keep": st.column_config.CheckboxColumn("Keep this part?"),
                         "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
                         "img_url": st.column_config.ImageColumn("From URL"),
                         "img_base64": st.column_config.ImageColumn("From Base64"),
                         "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
                         "detected_color_rgb": None
                     },
-                    use_container_width=True
+                    use_container_width=True,
+                    hide_index=True
                 )
 
-#                if st.button("Save on Rebrickable Part List"):
-                print("Saving selected parts to Rebrickable Part List...")
                 parts_list = [
                     {
-                        "part_num": row["rebrickable_id"],
+                        "part_num":
+                        row["rebrickable_id"],
                         # TODO put color_id
-                        "color_id": st.session_state.lego_colors.query(f"name == @row['color']")['id'].values[0].item(),
-                        "quantity": 1 if row["keep"] else 0
-                    }
-                    for _, row in filtered_df.iterrows()
+                        "color_id":
+                        st.session_state.lego_colors.query(
+                            f"name == @row['color']")['id'].values[0].item(),
+                        "quantity":
+                            row["quantity"]
+                    } for _, row in filtered_df.iterrows()
                 ]
-                print(parts_list)
+                # print(parts_list)
                 json_parts_list = json.dumps(parts_list)
-                print(json_parts_list)
+                # print(json_parts_list)
                 base64_json_parts_list = urlsafe_b64encode(
                     json_parts_list.encode()).decode()
-                print(base64_json_parts_list)
-                params = {
-                    "user_name": st.secrets["REBRICKABLE_USER_TOKEN"],
-                    "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
-                    "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
-                    "base64_json_parts_list": base64_json_parts_list
-                }
-                with st.spinner("Calling API..."):
-                    response = requests.get(
-                        f"{api_base_url}/add_parts_to_username_partlist", params=params)
-                    if response.status_code == 200:
-                        url = response.json().get("url")
-                        print(url)
-                        st.markdown(
-                            f"[🔗 Open Link]({url})", unsafe_allow_html=True)
-                    else:
-                        st.error("API call failed")
-                        st.stop()
+                # print(base64_json_parts_list)
+
+                # Initialize unlock flag in session_state
+                if 'save_selected_parts' not in st.session_state:
+                    st.session_state.save_selected_parts = False
+
+                if st.button("Save on Rebrickable Part List"):
+                    st.session_state.save_selected_parts = True
+
+                # Conditional rendering of additional buttons
+                if st.session_state.save_selected_parts:
+                    print("Saving selected parts to Rebrickable Part List...")
+                    params = {
+                        "user_name": st.secrets["REBRICKABLE_USER_NAME"],
+                        "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
+                        "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
+                        "base64_json_parts_list": base64_json_parts_list
+                    }
+                    with st.spinner("Calling API..."):
+                        response = requests.get(
+                            f"{api_base_url}/add_parts_to_username_partlist", params=params)
+                        if response.status_code == 200:
+                            url = response.json().get("url")
+                            print(url)
+                            st.markdown(f"[🔗 Open Link]({url})",
+                                        unsafe_allow_html=True)
+                            st.session_state.save_selected_parts = False
+                        else:
+                            st.error("API call failed")
+                            st.stop()
+
+                # Initialize unlock flag in session_state
+                if 'show_suggested_sets' not in st.session_state:
+                    st.session_state.show_suggested_sets = False
+
+                if st.button("Suggest sets to build"):
+                    st.session_state.show_suggested_sets = True
+
+                # Conditional rendering of additional buttons
+                if st.session_state.show_suggested_sets:
+                    print("Suggest sets to build with or without set colors...")
+                    params = {"base64_json_parts_list": base64_json_parts_list}
+                    with st.spinner("Calling API..."):
+                        response = requests.get(
+                            f"{api_base_url}/generate_final_df", params=params)
+                        if response.status_code == 200:
+                            print(type(response.json().get("df_no_color_final")))
+                            df_no_color_final = pd.DataFrame(
+                                json.loads(
+                                    response.json().get("df_no_color_final")))
+                            st.dataframe(
+                                df_no_color_final,
+                                column_config={
+                                    "img_url":
+                                    st.column_config.ImageColumn(
+                                        "From URL", width="large"),
+                                },
+                                # use_container_width=True,
+                                hide_index=True)
+                            print(type(response.json().get("df_color_final")))
+                            df_color_final = pd.DataFrame(
+                                json.loads(response.json().get("df_color_final")))
+                            st.dataframe(
+                                df_color_final,
+                                column_config={
+                                    "img_url":
+                                    st.column_config.ImageColumn(
+                                        "From URL", width="large"),
+                                },
+                                # use_container_width=True,
+                                hide_index=True)
+                            st.session_state.show_suggested_sets = False
+                        else:
+                            st.error("API call failed")
+                            st.stop()
 
     except Exception as e:
         st.error(f"Error processing image: {e}")
