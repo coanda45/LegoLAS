@@ -28,7 +28,7 @@ if uploaded_file:
     try:
         image = Image.open(uploaded_file)
         image = resize_image(image, RESIZE_VALUES)  # use a smaller image
-        st.image(image, caption="Uploaded image", use_container_width=False)
+        st.image(image, caption="Uploaded image")
 
         # Convertir en JPEG dans un buffer mémoire
         buf = io.BytesIO()
@@ -42,8 +42,8 @@ if uploaded_file:
         if "api_data" not in st.session_state:
             model_options = {
                 "-": None,
-                "(RoboFlow Lego Object Detection) Quick and dirty": "LOD",
-                "(RoboFlow LegoB rick Detector) Quick and not so dirty": "LBD",
+                "(Roboflow Lego Object Detection) Quick and dirty": "LOD",
+                "(Roboflow Lego Brick Detector) Quick and not so dirty": "LBD",
                 "(Meta Segment Anything Model) Slow but comprehensive (hopefully)": "SAM"
             }
             selected_label = st.selectbox("Choose a model for part detection:",
@@ -98,7 +98,7 @@ if uploaded_file:
 
         if "edited_df" in st.session_state:
             # print(type(st.session_state.edited_df))
-
+            st.write("### Detected parts:")
             before_df = st.session_state.edited_df.copy()
 
             # Appliquer un fond coloré dans la colonne "detected_color"
@@ -107,8 +107,6 @@ if uploaded_file:
                     f'background-color: {row["detected_color_rgb"]}' if col == "detected_color" else ''
                     for col in row.index
                 ]
-            # def color_bg(val):
-            #     return f'background-color: {val}'
 
             styled_df = st.session_state.edited_df.style.apply(
                 style_color_column, axis=1)
@@ -157,7 +155,7 @@ if uploaded_file:
                 filtered_df = filtered_df.groupby(
                     ['id', 'color'], as_index=False).agg(agg_dict)
 
-                st.write("### Selected Parts:")
+                st.write("### Selected parts:")
                 st.dataframe(
                     filtered_df,
                     column_config={
@@ -175,7 +173,6 @@ if uploaded_file:
                     {
                         "part_num":
                         row["rebrickable_id"],
-                        # TODO put color_id
                         "color_id":
                         st.session_state.lego_colors.query(
                             f"name == @row['color']")['id'].values[0].item(),
@@ -194,30 +191,43 @@ if uploaded_file:
                 if 'save_selected_parts' not in st.session_state:
                     st.session_state.save_selected_parts = False
 
-                if st.button("Save on Rebrickable Part List"):
-                    st.session_state.save_selected_parts = True
+                if "show_form" not in st.session_state:
+                    st.session_state.show_form = False
 
-                # Conditional rendering of additional buttons
-                if st.session_state.save_selected_parts:
-                    print("Saving selected parts to Rebrickable Part List...")
-                    params = {
-                        "user_name": st.secrets["REBRICKABLE_USER_NAME"],
-                        "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
-                        "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
-                        "base64_json_parts_list": base64_json_parts_list
-                    }
-                    with st.spinner("Calling API..."):
-                        response = requests.get(
-                            f"{api_base_url}/add_parts_to_username_partlist", params=params)
-                        if response.status_code == 200:
-                            url = response.json().get("url")
-                            print(url)
-                            st.markdown(f"[🔗 Open Link]({url})",
-                                        unsafe_allow_html=True)
-                            st.session_state.save_selected_parts = False
-                        else:
-                            st.error("API call failed")
-                            st.stop()
+                if st.button("Save part list to Rebrickable"):
+                    st.session_state.show_form = True
+
+                if st.session_state.show_form:
+                    st.subheader("Rebrickable authentication:")
+                    st.text("Please authenticate to Rebrickable in order to save your part list")
+                    st.text("Entering a new part list will create it. Entering an existing one will expand it.")
+                    with st.form("rebrickable_authentication"):
+                        username = st.text_input("Username", type="default")
+                        password = st.text_input("Password", type="password")
+                        part_list_name = st.text_input("Part list name", type="default")
+
+                        submitted = st.form_submit_button("Submit")
+                        if submitted:
+                            st.session_state.show_form = False
+                            params = {
+                                "user_name": username,
+                                "password": password,
+                                "part_list_name": part_list_name,
+                                "base64_json_parts_list": base64_json_parts_list
+                            }
+
+                            with st.spinner("Calling API..."):
+                                response = requests.get(
+                                    f"{api_base_url}/add_parts_to_username_partlist", params=params)
+                                if response.status_code == 200:
+                                    url = response.json().get("url")
+                                    print(url)
+                                    st.markdown(f"[See part list on Rebrickable]({url})",
+                                                unsafe_allow_html=True)
+                                    st.session_state.save_selected_parts = False
+                                else:
+                                    st.error("API call failed")
+                                    st.stop()
 
                 # Initialize unlock flag in session_state
                 if 'show_suggested_sets' not in st.session_state:
