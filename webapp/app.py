@@ -201,7 +201,7 @@ if uploaded_file:
                 if st.session_state.save_selected_parts:
                     print("Saving selected parts to Rebrickable Part List...")
                     params = {
-                        "user_name": st.secrets["REBRICKABLE_USER_TOKEN"],
+                        "user_name": st.secrets["REBRICKABLE_USER_NAME"],
                         "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
                         "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
                         "base64_json_parts_list": base64_json_parts_list
