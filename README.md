@@ -76,7 +76,7 @@ REBRICKABLE_API_KEY=<your_rebrickable_api_key>
 ```
 ⚠️ Contrairement au `secrets.toml`, les valeurs des variables ne doivent pas être entourées de guillemets (`VAR=val`).
 
-La clé API [Rebrickable](https://rebrickable.com/home/) s'obtient en y créant un compte puis via le chemin `Profile` → `Settings` → `API` → `Generate new API Key`  [(cf. illustration partie suivante)](#image-rb-variables). C'est nécessaire même pour tester la segmentation.
+La clé API [Rebrickable](https://rebrickable.com/home/) s'obtient en y créant un compte puis via le chemin `Profile` → `Settings` → `API` → `Generate new API Key`  [(cf. illustration)](#image-rb-variables). C'est nécessaire même pour tester la segmentation.
 
 Une fois le `.env` finalisé, prendre en compte ses modifications avec les 2 commandes suivantes :
 ```bash
@@ -86,23 +86,10 @@ direnv reload .
 Toute modification ultérieure du `.env` nécessite à nouveau ces commandes.
 
 ### 4. Définir l'URL locale
-Dans le dossier `.streamlit`, copier le fichier `secrets.toml.placeholder` en `secrets.toml`, et adapter le contenu de ce dernier :
+Dans le dossier `.streamlit`, copier le fichier `secrets.toml.placeholder` en `secrets.toml`. Il n'y a rien à modifier dedans.
 ```bash
 API_BASE_URL="http://localhost:8000"
-REBRICKABLE_USER_NAME="<your_rebrickable_account_username>"
-RERICKABLE_USER_PASSWORD="<your_rebrickable_real_account_password>"
-REBRICKABLE_PART_LIST_NAME="<a_new_or_existing_name_for_a_part_list>"
 ```
-⚠️ Contrairement au `.env`, les valeurs doivent être entourées de guillemets (`VAR="val"`).
-
-Le username Rebrickable s'obtient en y créant un compte puis via le chemin `Profile` → `Settings` → `Account` → `Username` [(cf. illustration)](#image-rb-variables).
-
-Si la part list Rebrickable existe déjà, elle sera complétée (et non écrasée). Si elle n'existe pas, elle sera créée.
-
-<a id="image-rb-variables"></a>
-<div>
-  <img src="./resources/rb_variables.png" alt="Logo" width="768" style="scroll-margin-top: 100px;"/>
-</div>
 
 ### 5. Démarrer le serveur web local
 Dans un premier terminal, se déplacer à la racine du projet (`legoLAS/`) puis exécuter la commande
@@ -115,8 +102,20 @@ streamlit run webapp/app.py
 ```
 Un onglet s'ouvre alors dans le navigateur par défaut.
 
-#### Astuce
+## Astuces
+### CPU ou GPU ?
 Dans le premier terminal, les logs de démarrage indiquent si l'API peut solliciter les GPU de la machine : le message sera soit `SAM: GPU will be used`, soit `SAM: GPU will NOT be used`. Dans le second cas, il est conseillé de <u>ne pas utiliser le modèle SAM</u>, ou alors d'être très patient (lors des longues minutes de la segmentation).
+
+### Compte Rebrickable
+Lors de l'utilisation de l'outil, pour sauvegarder des listes de pièces sur Rebrickable, il faudra un compte. Une fois celui-ci créé, le username via le chemin `Profile` → `Settings` → `Account` → `Username` [(cf. illustration)](#image-rb-variables).
+
+Si la part list Rebrickable existe déjà, elle sera complétée (et non écrasée). Si elle n'existe pas, elle sera créée.
+
+<a id="image-rb-variables"></a>
+<div>
+  <img src="./resources/rb_variables.png" alt="Logo" width="768" style="scroll-margin-top: 100px;"/>
+</div>
+
 
 # Arguments d'entrée de l'API
 L'API LegoLAS attend simplement une image, à charger depuis sa machine, via un bouton. Les formats acceptés sont `png`, `jpg`, `bmp` et `gif`.
