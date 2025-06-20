@@ -29,8 +29,14 @@ uploaded_file = st.file_uploader("Choose a file",
 
 api_base_url = st.secrets["API_BASE_URL"]
 
+# handle table height
 table_max_height = 555
-line_height  = 36
+line_height  = 38
+# column order for 'detected parts' and 'selected parts' tables
+det_sel_parts_column_order=(
+    "image_num", "img_base64", "img_url", "id", "rebrickable_id", "name",
+    "category", "score", "quantity", "detected_color", "color", "colors")
+
 
 if uploaded_file:
     try:
@@ -130,20 +136,23 @@ if uploaded_file:
                 column_config={
                     "image_num": st.column_config.NumberColumn("Crop ID"),
                     "img_base64": st.column_config.ImageColumn("Crop image"),
-                    "id": st.column_config.NumberColumn("Bricklink ID"),
-                    "name": st.column_config.TextColumn("Bricklink name"),
                     "img_url": st.column_config.ImageColumn("Bricklink image"),
+                    "id": st.column_config.TextColumn("Bricklink ID"),
+                    # "rebrickable_id": st.column_config.TextColumn("Rebrickable ID"),  # hide it for the demo day
+                    "rebrickable_id": None,
+                    "name": st.column_config.TextColumn("Bricklink name"),
                     "category": st.column_config.TextColumn("Bricklink category"),
                     "type" : None,
-                    "score": st.column_config.NumberColumn("Confidence (%)", format="%.3f"),
-                    "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),
+                    # "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),  # hide it for the demo day
+                    "bricklink_url": None,
+                    "score": st.column_config.NumberColumn("Confidence", format="%.3f"),
                     "quantity": st.column_config.NumberColumn("Quantity"),
-                    "detected_color": st.column_config.ImageColumn("Detected color"),
-                    "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
                     "detected_color_rgb": None,
-                    "rebrickable_id": st.column_config.NumberColumn("Rebrickable ID"),
-                    # "colors": st.column_config.TextColumn("Available colors", disabled=True),
+                    "detected_color": st.column_config.ImageColumn("Detected color"),
+                    "color": st.column_config.SelectboxColumn("Chosen color", options=st.session_state.lego_colors["name"].to_list()),
+                    # "colors": st.column_config.TextColumn("Available colors", disabled=True),  # TODO rename to "Available colors" while keeping the pretty print
                 },
+                column_order=det_sel_parts_column_order,
                 use_container_width=True,
                 hide_index=True,
                 num_rows="fixed",
@@ -179,21 +188,27 @@ if uploaded_file:
                 st.dataframe(
                     filtered_df,
                     column_config={
-                        "id": st.column_config.NumberColumn("Bricklink ID"),
-                        "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
                         "image_num": st.column_config.NumberColumn("Crop ID"),
                         "img_base64": st.column_config.ImageColumn("Crop image"),
-                        "name": st.column_config.TextColumn("Bricklink name"),
                         "img_url": st.column_config.ImageColumn("Bricklink image"),
-                        "category": st.column_config.TextColumn("Bricklink category"),
+                        "id": st.column_config.TextColumn("Bricklink ID"),
+                        # "rebrickable_id": st.column_config.TextColumn("Rebrickable ID"),  # hide it for the demo day
+                        "rebrickable_id": None,
+                        "name": st.column_config.TextColumn("Bricklink name"),
+                        # "category": st.column_config.TextColumn("Bricklink category"),  # hide it for the demo day
+                        "category": None,
                         "type" : None,
-                        "score": st.column_config.NumberColumn("Confidence (%)", format="%.3f"),
-                        "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),
-                        "detected_color": st.column_config.ImageColumn("Detected color"),
-                        "detected_color_rgb": None,
-                        "rebrickable_id": st.column_config.NumberColumn("Rebrickable ID"),
+                        # "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),  # hide it for the demo day
+                        "bricklink_url": None,
+                        "score": st.column_config.NumberColumn("Confidence", format="%.3f"),
                         "quantity": st.column_config.NumberColumn("Quantity"),
+                        "detected_color_rgb": None,
+                        "detected_color": st.column_config.ImageColumn("Detected color"),  # hide it for the demo day
+                        "detected_color": None,
+                        "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
+                        "colors": None
                     },
+                    column_order=det_sel_parts_column_order,
                     use_container_width=True,
                     hide_index=True
                 )
