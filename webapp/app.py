@@ -29,11 +29,20 @@ uploaded_file = st.file_uploader("Choose a file",
 
 api_base_url = st.secrets["API_BASE_URL"]
 
+# handle table height
+table_max_height = 555
+line_height  = 38
+# column order for 'detected parts' and 'selected parts' tables
+det_sel_parts_column_order=(
+    "image_num", "img_base64", "img_url", "id", "rebrickable_id", "name",
+    "category", "score", "quantity", "detected_color", "color", "colors")
+
+
 if uploaded_file:
     try:
         image = Image.open(uploaded_file)
         image = resize_image(image, RESIZE_VALUES)  # use a smaller image
-        st.image(image, caption="Uploaded image", use_container_width=False)
+        st.image(image, caption="Uploaded image")
 
         # Convertir en JPEG dans un buffer mémoire
         buf = io.BytesIO()
@@ -103,7 +112,7 @@ if uploaded_file:
 
         if "edited_df" in st.session_state:
             # print(type(st.session_state.edited_df))
-
+            st.write("### Detected parts:")
             before_df = st.session_state.edited_df.copy()
 
             # Appliquer un fond coloré dans la colonne "detected_color"
@@ -112,8 +121,6 @@ if uploaded_file:
                     f'background-color: {row["detected_color_rgb"]}' if col == "detected_color" else ''
                     for col in row.index
                 ]
-            # def color_bg(val):
-            #     return f'background-color: {val}'
 
             styled_df = st.session_state.edited_df.style.apply(
                 style_color_column, axis=1)
@@ -122,15 +129,30 @@ if uploaded_file:
                 # TODO Use API and not local version
                 st.session_state.lego_colors = get_all_lego_colors()
 
+            height = min(table_max_height, line_height * (len(st.session_state.edited_df) + 1))  # 36 px per line but no more than 555 px
             st.session_state.edited_df = st.data_editor(
                 styled_df,
+                height=height,
                 column_config={
-                    "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
-                    "img_url": st.column_config.ImageColumn("From URL"),
-                    "img_base64": st.column_config.ImageColumn("From Base64"),
-                    "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
-                    "detected_color_rgb": None
+                    "image_num": st.column_config.NumberColumn("Crop ID"),
+                    "img_base64": st.column_config.ImageColumn("Crop image"),
+                    "img_url": st.column_config.ImageColumn("Bricklink image"),
+                    "id": st.column_config.TextColumn("Bricklink ID"),
+                    # "rebrickable_id": st.column_config.TextColumn("Rebrickable ID"),  # hide it for the demo day
+                    "rebrickable_id": None,
+                    "name": st.column_config.TextColumn("Bricklink name"),
+                    "category": st.column_config.TextColumn("Bricklink category"),
+                    "type" : None,
+                    # "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),  # hide it for the demo day
+                    "bricklink_url": None,
+                    "score": st.column_config.NumberColumn("Confidence", format="%.3f"),
+                    "quantity": st.column_config.NumberColumn("Quantity"),
+                    "detected_color_rgb": None,
+                    "detected_color": st.column_config.ImageColumn("Detected color"),
+                    "color": st.column_config.SelectboxColumn("Chosen color", options=st.session_state.lego_colors["name"].to_list()),
+                    # "colors": st.column_config.TextColumn("Available colors", disabled=True),  # TODO rename to "Available colors" while keeping the pretty print
                 },
+                column_order=det_sel_parts_column_order,
                 use_container_width=True,
                 hide_index=True,
                 num_rows="fixed",
@@ -161,17 +183,32 @@ if uploaded_file:
                 agg_dict['quantity'] = 'sum'
                 filtered_df = filtered_df.groupby(
                     ['id', 'color'], as_index=False).agg(agg_dict)
-
-                st.write("### Selected Parts:")
+                height = min(table_max_height, line_height * (len(st.session_state.edited_df) + 1))
+                st.write("### Selected parts:")
                 st.dataframe(
                     filtered_df,
                     column_config={
-                        "bricklink_url": st.column_config.LinkColumn("BrickLink", display_text="View"),
-                        "img_url": st.column_config.ImageColumn("From URL"),
-                        "img_base64": st.column_config.ImageColumn("From Base64"),
+                        "image_num": st.column_config.NumberColumn("Crop ID"),
+                        "img_base64": st.column_config.ImageColumn("Crop image"),
+                        "img_url": st.column_config.ImageColumn("Bricklink image"),
+                        "id": st.column_config.TextColumn("Bricklink ID"),
+                        # "rebrickable_id": st.column_config.TextColumn("Rebrickable ID"),  # hide it for the demo day
+                        "rebrickable_id": None,
+                        "name": st.column_config.TextColumn("Bricklink name"),
+                        # "category": st.column_config.TextColumn("Bricklink category"),  # hide it for the demo day
+                        "category": None,
+                        "type" : None,
+                        # "bricklink_url": st.column_config.LinkColumn("Bricklink page", display_text="View"),  # hide it for the demo day
+                        "bricklink_url": None,
+                        "score": st.column_config.NumberColumn("Confidence", format="%.3f"),
+                        "quantity": st.column_config.NumberColumn("Quantity"),
+                        "detected_color_rgb": None,
+                        "detected_color": st.column_config.ImageColumn("Detected color"),  # hide it for the demo day
+                        "detected_color": None,
                         "color": st.column_config.SelectboxColumn("Color", options=st.session_state.lego_colors["name"].to_list()),
-                        "detected_color_rgb": None
+                        "colors": None
                     },
+                    column_order=det_sel_parts_column_order,
                     use_container_width=True,
                     hide_index=True
                 )
@@ -180,7 +217,6 @@ if uploaded_file:
                     {
                         "part_num":
                         row["rebrickable_id"],
-                        # TODO put color_id
                         "color_id":
                         st.session_state.lego_colors.query(
                             f"name == @row['color']")['id'].values[0].item(),
@@ -199,30 +235,43 @@ if uploaded_file:
                 if 'save_selected_parts' not in st.session_state:
                     st.session_state.save_selected_parts = False
 
-                if st.button("Save on Rebrickable Part List"):
-                    st.session_state.save_selected_parts = True
+                if "show_form" not in st.session_state:
+                    st.session_state.show_form = False
 
-                # Conditional rendering of additional buttons
-                if st.session_state.save_selected_parts:
-                    print("Saving selected parts to Rebrickable Part List...")
-                    params = {
-                        "user_name": st.secrets["REBRICKABLE_USER_NAME"],
-                        "password": st.secrets["REBRICKABLE_USER_PASSWORD"],
-                        "part_list_name": st.secrets["REBRICKABLE_PART_LIST_NAME"],
-                        "base64_json_parts_list": base64_json_parts_list
-                    }
-                    with st.spinner("Calling API..."):
-                        response = requests.get(
-                            f"{api_base_url}/add_parts_to_username_partlist", params=params)
-                        if response.status_code == 200:
-                            url = response.json().get("url")
-                            print(url)
-                            st.markdown(f"[🔗 Open Link]({url})",
-                                        unsafe_allow_html=True)
-                            st.session_state.save_selected_parts = False
-                        else:
-                            st.error("API call failed")
-                            st.stop()
+                if st.button("Save part list to Rebrickable"):
+                    st.session_state.show_form = True
+
+                if st.session_state.show_form:
+                    st.subheader("Rebrickable authentication:")
+                    st.text("Please authenticate to Rebrickable in order to save your part list.")
+                    st.text("Entering a new part list will create it. Entering an existing one will expand it.")
+                    with st.form("rebrickable_authentication"):
+                        username = st.text_input("Username", type="default")
+                        password = st.text_input("Password", type="password")
+                        part_list_name = st.text_input("Part list name", type="default")
+
+                        submitted = st.form_submit_button("Submit")
+                        if submitted:
+                            st.session_state.show_form = False
+                            params = {
+                                "user_name": username,
+                                "password": password,
+                                "part_list_name": part_list_name,
+                                "base64_json_parts_list": base64_json_parts_list
+                            }
+
+                            with st.spinner("Calling API..."):
+                                response = requests.get(
+                                    f"{api_base_url}/add_parts_to_username_partlist", params=params)
+                                if response.status_code == 200:
+                                    url = response.json().get("url")
+                                    print(url)
+                                    st.markdown(f"[See part list on Rebrickable]({url})",
+                                                unsafe_allow_html=True)
+                                    st.session_state.save_selected_parts = False
+                                else:
+                                    st.error("API call failed")
+                                    st.stop()
 
                 # Initialize unlock flag in session_state
                 if 'show_suggested_sets' not in st.session_state:
@@ -239,6 +288,7 @@ if uploaded_file:
                         response = requests.get(
                             f"{api_base_url}/generate_final_df", params=params)
                         if response.status_code == 200:
+                            print(type(response.json().get("df_no_color_final")))
                             st.write("### Available sets, discarding colour matching:")
                             df_no_color_final = pd.DataFrame(
                                 json.loads(
@@ -246,21 +296,24 @@ if uploaded_file:
                             st.dataframe(
                                 df_no_color_final,
                                 column_config={
-                                    "img_url":
-                                    st.column_config.ImageColumn(
-                                        "From URL", width="large"),
+                                    "inventory_id": st.column_config.NumberColumn("Inventory ID"),
+                                    "img_url": st.column_config.ImageColumn("Set image", width="large"),
+                                    "set_num": st.column_config.TextColumn("Set ID"),
+                                    "percent_no_colour": st.column_config.NumberColumn("Available parts (%)"),
                                 },
                                 # use_container_width=True,
                                 hide_index=True)
+                            print(type(response.json().get("df_color_final")))
                             st.write("### Available sets, taking colour matching into account:")
                             df_color_final = pd.DataFrame(
                                 json.loads(response.json().get("df_color_final")))
                             st.dataframe(
                                 df_color_final,
                                 column_config={
-                                    "img_url":
-                                    st.column_config.ImageColumn(
-                                        "From URL", width="large"),
+                                    "inventory_id": st.column_config.NumberColumn("Inventory ID"),
+                                    "img_url": st.column_config.ImageColumn("Set image"),
+                                    "set_num": st.column_config.TextColumn("Set ID"),
+                                    "percent_colour_match": st.column_config.NumberColumn("Available parts (%)"),
                                 },
                                 # use_container_width=True,
                                 hide_index=True)
