@@ -51,3 +51,6 @@ secrets.toml
 
 #notebook
 notebooks/
+
+#vscode container configuration
+.devcontainer
